@@ -1,0 +1,34 @@
+:root {
+  --bg-deep: #06080c;
+  --bg-card: rgba(16, 22, 32, 0.85);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --text-primary: #f2f5f9;
+  --text-muted: #8b97a8;
+  --accent: #3ee0d0;
+  --accent-dim: rgba(62, 224, 208, 0.14);
+  --danger: #f07178;
+  --radius: 12px;
+  --font: system-ui, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}

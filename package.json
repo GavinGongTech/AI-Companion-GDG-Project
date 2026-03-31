@@ -1,31 +1,22 @@
 {
-  "name": "gdg-app",
+  "name": "gdg-monorepo",
   "private": true,
-  "version": "0.0.1",
   "type": "module",
+  "workspaces": [
+    "web",
+    "extension",
+    "server"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-router-dom": "^7.4.0"
+    "dev": "npm run dev --workspace=web",
+    "dev:web": "npm run dev --workspace=web",
+    "dev:extension": "npm run dev --workspace=extension",
+    "dev:server": "npm run dev --workspace=server",
+    "dev:all": "concurrently -n web,ext,srv -c blue,green,magenta \"npm run dev:web\" \"npm run dev:extension\" \"npm run dev:server\"",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present"
   },
   "devDependencies": {
-    "@eslint/js": "^9.21.0",
-    "@types/node": "^25.5.0",
-    "@types/react": "^19.0.10",
-    "@types/react-dom": "^19.0.4",
-    "@vitejs/plugin-react": "^4.3.4",
-    "eslint": "^9.21.0",
-    "eslint-plugin-react-hooks": "^5.1.0",
-    "eslint-plugin-react-refresh": "^0.4.19",
-    "globals": "^15.15.0",
-    "typescript": "~5.7.2",
-    "typescript-eslint": "^8.24.1",
-    "vite": "^6.2.0"
+    "concurrently": "^9.1.2"
   }
 }

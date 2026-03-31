@@ -13,10 +13,12 @@ export function Download() {
         </p>
         <div className={styles.chromeRow}>
           <button type="button" className={styles.primaryBtn} disabled>
-            Add to Chrome
+            Add to Chrome (store link TBD)
           </button>
           <span className={styles.hint}>
-            Package link will ship with your store listing or unpacked build.
+            Dev: run <code className={styles.code}>npm run build --workspace=extension</code>,
+            then Chrome → Extensions → Developer mode → Load unpacked → select{" "}
+            <code className={styles.code}>extension/dist</code>.
           </span>
         </div>
         <p className={styles.note}>
