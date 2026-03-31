@@ -18,8 +18,7 @@ const features = [
     title: "Misconception graph",
     body: "A persistent model of conceptual slips powers spaced repetition and explanations that sharpen over time.",
   },
-] as const;
-
+];
 export function Home() {
   return (
     <div className={styles.page}>
