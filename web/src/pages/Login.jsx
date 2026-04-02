@@ -1,11 +1,10 @@
-import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import styles from "./AuthPages.module.css";
 
 export function Login() {
   const navigate = useNavigate();
 
-  function onSubmit(e: FormEvent<HTMLFormElement>) {
+  function onSubmit(e) {
     e.preventDefault();
     navigate("/welcome");
   }
