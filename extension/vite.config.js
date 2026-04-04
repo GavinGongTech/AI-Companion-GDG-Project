@@ -1,12 +1,18 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { resolve } from "path";
+import { fileURLToPath } from "url";
+import { dirname, resolve } from "path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export default defineConfig({
   plugins: [react()],
   build: {
     outDir: "dist",
     emptyOutDir: true,
+    minify: "esbuild",
+    sourcemap: false,
     rollupOptions: {
       input: {
         sidepanel: resolve(__dirname, "sidepanel.html"),
@@ -14,7 +20,7 @@ export default defineConfig({
         content: resolve(__dirname, "src/content.js"),
       },
       output: {
-        // Keep entry file names stable so manifest.json refs resolve correctly
+        // Stable entry names so manifest.json references resolve correctly
         entryFileNames: "[name].js",
         chunkFileNames: "chunks/[name]-[hash].js",
         assetFileNames: "assets/[name]-[hash][extname]",
