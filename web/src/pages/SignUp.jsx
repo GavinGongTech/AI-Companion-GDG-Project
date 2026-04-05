@@ -1,12 +1,37 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import {
+  createUserWithEmailAndPassword,
+  updateProfile,
+} from "firebase/auth";
+import { auth } from "../lib/firebase";
 import styles from "./AuthPages.module.css";
 
 export function SignUp() {
   const navigate = useNavigate();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  function onSubmit(e) {
+  async function onSubmit(e) {
     e.preventDefault();
-    navigate("/welcome");
+    setError("");
+    setLoading(true);
+    try {
+      const { user } = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      );
+      await updateProfile(user, { displayName: name });
+      navigate("/welcome");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -15,9 +40,10 @@ export function SignUp() {
         <p className={styles.eyebrow}>New student</p>
         <h1 className={styles.title}>Create your account</h1>
         <p className={styles.lede}>
-          We’ll build your misconception graph and vector index as you study.
-          You can connect Canvas after signup for auto-ingestion.
+          We’ll build your misconception graph as you study. You can connect
+          your courses after signup for auto-ingestion.
         </p>
+        {error && <p className={styles.error}>{error}</p>}
         <form className={styles.form} onSubmit={onSubmit}>
           <label className={styles.field}>
             <span className={styles.label}>Full name</span>
@@ -27,6 +53,8 @@ export function SignUp() {
               name="name"
               autoComplete="name"
               placeholder="Alex Chen"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               required
             />
           </label>
@@ -38,6 +66,8 @@ export function SignUp() {
               name="email"
               autoComplete="email"
               placeholder="you@university.edu"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
             />
           </label>
@@ -50,11 +80,17 @@ export function SignUp() {
               autoComplete="new-password"
               placeholder="At least 8 characters"
               minLength={8}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               required
             />
           </label>
-          <button type="submit" className={styles.primaryBtnWide}>
-            Create account
+          <button
+            type="submit"
+            className={styles.primaryBtnWide}
+            disabled={loading}
+          >
+            {loading ? "Creating account..." : "Create account"}
           </button>
         </form>
         <p className={styles.footerLine}>
