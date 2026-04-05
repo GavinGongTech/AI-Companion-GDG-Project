@@ -3,53 +3,95 @@ import styles from "./Home.module.css";
 
 const features = [
   {
-    title: "In-flow capture",
-    body: "Grab expressions and problems from any page or notes without breaking your train of thought.",
+    title: "Zero-friction ingestion",
+    body: "Extension auto-detects Brightspace and Gradescope, extracts course materials, chunks and embeds them. No uploads needed.",
   },
   {
-    title: "Structured answers",
-    body: "Question, solution, main concept, and the lecture chunk that matters — not a wall of text.",
+    title: "Course-grounded explanations",
+    body: "Every answer pulls from your actual syllabus via RAG, not generic web results. Key formulas and relevant lecture sections highlighted.",
   },
   {
-    title: "Course-aware RAG",
-    body: "Auto-ingestion from your LMS builds a vector index tied to your real syllabus, not generic web math.",
+    title: "Professor-style quizzes",
+    body: "SM-2 spaced repetition picks your weakest concepts. Gemini generates exam-style MCQs at difficulty calibrated to your accuracy.",
   },
   {
     title: "Misconception graph",
-    body: "A persistent model of conceptual slips powers spaced repetition and explanations that sharpen over time.",
+    body: "A persistent map of what you get wrong, how often, and why. Tracks concept mastery over time and schedules targeted review.",
   },
 ];
+
+const comparisonRows = [
+  {
+    feature: "Knows your syllabus",
+    studyFlow: "Yes (auto-ingest)",
+    chatgpt: "No",
+    notebookLM: "Manual upload",
+    anki: "No",
+  },
+  {
+    feature: "Tracks misconceptions",
+    studyFlow: "Yes (SMG + SM-2)",
+    chatgpt: "No",
+    notebookLM: "No",
+    anki: "Manual cards",
+  },
+  {
+    feature: "Professor-style quizzes",
+    studyFlow: "Yes (weighted)",
+    chatgpt: "Generic",
+    notebookLM: "No",
+    anki: "Manual cards",
+  },
+  {
+    feature: "In-browser workflow",
+    studyFlow: "Side panel",
+    chatgpt: "Separate tab",
+    notebookLM: "Separate tab",
+    anki: "Separate app",
+  },
+  {
+    feature: "Personalized over time",
+    studyFlow: "Yes (grows smarter)",
+    chatgpt: "Resets each chat",
+    notebookLM: "Static",
+    anki: "Manual",
+  },
+];
+
+function isYes(value) {
+  return value.startsWith("Yes");
+}
+
 export function Home() {
   return (
     <div className={styles.page}>
       <section className={styles.hero}>
-        <p className={styles.eyebrow}>Browser extension · Active assistant mode</p>
+        <p className={styles.eyebrow}>Chrome extension + web dashboard</p>
         <h1 className={styles.headline}>
-          Math help that stays{" "}
-          <span className={styles.headlineAccent}>in your workflow</span>
+          Stop re-learning what you{" "}
+          <span className={styles.headlineAccent}>already forgot</span>
         </h1>
         <p className={styles.lede}>
-          Stop juggling search tabs, calculators, and chatbots. Study Flow gives
-          you contextual assistance while you solve — capture from the page,
-          get structured guidance in the side panel, and let your course model
-          grow smarter every session.
+          Study Flow builds a persistent model of what you misunderstand and
+          uses spaced repetition to fix it — grounded in your actual course
+          materials, not generic web results.
         </p>
         <div className={styles.heroActions}>
           <Link to="/download" className={styles.primaryBtn}>
             Get the extension
           </Link>
           <Link to="/login" className={styles.secondaryBtn}>
-            I already have an account
+            Sign in
           </Link>
         </div>
         <ul className={styles.meta}>
           <li>
             <span className={styles.metaLabel}>Stack</span>
-            React · MV3 · Node · Postgres + pgvector
+            React · MV3 · Node · Firestore
           </li>
           <li>
             <span className={styles.metaLabel}>AI</span>
-            Gemini + embeddings · OCR via Vision API
+            Gemini 2.0 Flash · text-embedding-004 · Cloud Vision OCR
           </li>
         </ul>
       </section>
@@ -58,24 +100,27 @@ export function Home() {
         <div className={styles.panelInner}>
           <div className={styles.panelCopy}>
             <h2 id="how-heading" className={styles.sectionTitle}>
-              Two modes, one backend
+              Ingestion + Intelligence, one loop
             </h2>
             <p className={styles.sectionText}>
-              Passive ingestion quietly syncs materials from your university
-              platforms. When you open the side panel, active assistant mode
-              layers retrieval, classification, and explanation on top of the
-              same data layer — JWT sessions, OAuth toward Canvas, and vector
-              search in PostgreSQL.
+              Passive ingestion auto-syncs materials from Brightspace and
+              Gradescope without any manual uploads. When you ask a question,
+              active assistant mode retrieves relevant chunks via RAG and feeds
+              them to Gemini for grounded explanations. Every wrong answer
+              updates your misconception graph, and SM-2 spaced repetition
+              schedules the right review at the right time.
             </p>
           </div>
           <div className={styles.diagram} role="presentation">
             <div className={styles.diagramRow}>
               <span className={styles.diagramNode}>Extension</span>
-              <span className={styles.diagramArrow}>→</span>
+              <span className={styles.diagramArrow}>&rarr;</span>
               <span className={styles.diagramNodeEm}>API</span>
+              <span className={styles.diagramArrow}>&rarr;</span>
+              <span className={styles.diagramNode}>Gemini + Firestore</span>
             </div>
             <div className={styles.diagramSub}>
-              <span>Ingestion · AI pipeline · pgvector</span>
+              <span>Ingestion · RAG pipeline · Misconception graph</span>
             </div>
           </div>
         </div>
@@ -95,13 +140,49 @@ export function Home() {
         </div>
       </section>
 
+      <section
+        className={styles.comparison}
+        aria-labelledby="comparison-heading"
+      >
+        <h2 id="comparison-heading" className={styles.comparisonTitle}>
+          How Study Flow compares
+        </h2>
+        <div className={styles.comparisonTableWrap}>
+          <table className={styles.comparisonTable}>
+            <thead>
+              <tr>
+                <th>Feature</th>
+                <th>Study Flow</th>
+                <th>ChatGPT / Gemini</th>
+                <th>NotebookLM</th>
+                <th>Anki</th>
+              </tr>
+            </thead>
+            <tbody>
+              {comparisonRows.map((row) => (
+                <tr key={row.feature}>
+                  <td>{row.feature}</td>
+                  <td className={isYes(row.studyFlow) ? styles.cellYes : undefined}>
+                    {row.studyFlow}
+                  </td>
+                  <td>{row.chatgpt}</td>
+                  <td>{row.notebookLM}</td>
+                  <td>{row.anki}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       <section className={styles.ctaBand}>
         <div className={styles.ctaInner}>
-          <h2 className={styles.ctaTitle}>Ready when your next problem is</h2>
+          <h2 className={styles.ctaTitle}>
+            Your next wrong answer is the most useful one
+          </h2>
           <p className={styles.ctaText}>
-            Install the extension, connect your course materials, and open the
-            panel whenever you need structured help — no context reset between
-            tabs.
+            Every mistake feeds your misconception graph. Over time, Study Flow
+            learns exactly what to review and when.
           </p>
           <div className={styles.ctaRow}>
             <Link to="/signup" className={styles.primaryBtn}>

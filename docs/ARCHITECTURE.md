@@ -1,158 +1,247 @@
-# Architecture — AI Companion Study Flow
+# Architecture -- AI Companion (Study Flow)
 
-This document describes the **intended end-to-end system**: website, Chrome extension, backend, data, and AI. Only the **website** in this repository is implemented today; the rest is the **target design** aligned with your stack and wireframes.
+System architecture for the AI study companion. All components are implemented and functional.
 
 ---
 
-## 1. High-level picture
+## High-Level Overview
 
-```mermaid
-flowchart LR
-  subgraph client [Client]
-    Web[Marketing website React]
-    Ext[Chrome extension MV3]
-    CS[Content scripts LMS pages]
-  end
-  subgraph server [Backend Node Express]
-    API[REST API]
-    Ing[Ingestion pipeline]
-    AI[AI pipeline RAG LLM]
-  end
-  subgraph data [Data]
-    PG[(PostgreSQL)]
-    V[(pgvector embeddings)]
-  end
-  Web --> API
-  Ext --> API
-  CS --> Ing
-  Ing --> V
-  Ing --> PG
-  AI --> V
-  AI --> PG
-  API --> AI
-  API --> PG
+```
++-------------------+     +-------------------+
+|  Chrome Extension  |     |     Web App        |
+|  (MV3 Side Panel)  |     |  (React + Vite)    |
+|                    |     |                    |
+|  - Ask/Explain     |     |  - Landing page    |
+|  - Quiz            |     |  - Auth (login/    |
+|  - My Graph        |     |    signup)         |
+|  - Auto-Ingest     |     |  - Dashboard       |
++---------+----------+     +---------+----------+
+          |                          |
+          |    Firebase ID Token     |
+          +----------+---------------+
+                     |
+              +------v------+
+              | Express API  |
+              | (Node.js)    |
+              | Port 3000    |
+              +------+------+
+                     |
+         +-----------+-----------+
+         |           |           |
+   +-----v----+ +---v----+ +---v-----------+
+   | Gemini   | |Firestore| |Cloud Vision  |
+   | 2.0 Flash| |(NoSQL)  | |(OCR)         |
+   +----------+ +--------+ +--------------+
 ```
 
-- **Website:** onboarding, account, link to Chrome Web Store / install instructions.
-- **Extension:** side panel UI (Ask, Quiz, hub, settings); optional content scripts on LMS tabs for **passive ingestion** and context.
-- **Backend:** one API surface for auth (JWT), ingestion jobs, chat/explain/quiz, and misconception updates.
-- **PostgreSQL + pgvector:** structured user/course data + embedding similarity for retrieval.
+---
+
+## Component Responsibilities
+
+### Chrome Extension (`extension/`)
+
+| Component | File | Role |
+|-----------|------|------|
+| Background worker | `src/background.js` | Opens side panel, handles message passing from content script |
+| Content script | `src/content.js` | Detects Brightspace/Gradescope pages, extracts text for auto-ingestion |
+| Side panel app | `src/sidepanel/` | React app with auth gating, Ask/Quiz/Hub pages |
+| Auth | `src/sidepanel/lib/` | `chrome.identity` -> Google OAuth -> Firebase credential |
+| API client | `src/sidepanel/lib/api.js` | Fetch wrapper injecting Bearer token for all backend calls |
+
+### Web App (`web/`)
+
+| Component | File | Role |
+|-----------|------|------|
+| Auth context | `src/lib/auth.jsx` | `AuthProvider` wrapping app, `onAuthStateChanged` listener |
+| Firebase init | `src/lib/firebase.js` | Client SDK config from `VITE_FIREBASE_*` env vars |
+| API wrapper | `src/lib/api.js` | Auto-attaches Bearer token to every fetch |
+| Protected routes | `src/components/ProtectedRoute.jsx` | Redirects unauthenticated users to /login |
+| Landing page | `src/pages/Home.jsx` | Product overview, feature cards, install CTA |
+| Dashboard | `src/pages/Dashboard.jsx` | SMG visualization, drill queue, session history |
+
+### Backend (`server/`)
+
+| Subsystem | Files | Role |
+|-----------|-------|------|
+| **Auth middleware** | `middleware/auth.js` | Verifies Firebase ID token on every protected route |
+| **Analyze pipeline** | `routes/analyze.js` | RAG -> Gemini explain -> classifier -> save event -> SM-2 update |
+| **Quiz engine** | `routes/quiz.js` | Generates MCQs weighted by weakness, records answers |
+| **Ingestion** | `routes/ingest.js`, `services/ingestion.js` | File upload + text ingestion -> chunk -> embed -> Firestore |
+| **RAG** | `services/rag.js` | Vector similarity search across course chunks |
+| **SMG engine** | `services/misconception.js` | SM-2 algorithm, concept tracking, drill queue |
+| **Gemini** | `services/gemini.js` | LLM calls for explain, classify, quiz generation |
+| **Embeddings** | `services/embeddings.js` | text-embedding-004 for chunk and query vectors |
+| **OCR** | `services/ocr.js` | Cloud Vision API for image/PDF text extraction |
+| **Firestore helpers** | `services/firestore.js` | saveInteraction, ensureUserDoc |
 
 ---
 
-## 2. Repository layout (current vs planned)
+## Data Flow: Explain (Ask) Mode
 
-| Area | Status | Notes |
-|------|--------|--------|
-| `src/` React SPA | **Implemented** | Routes: `/`, `/download`, `/login`, `/signup`, `/welcome`. |
-| Chrome extension (`extension/` or monorepo package) | **Planned** | `manifest.json` (MV3), service worker, side panel entry, content scripts. |
-| Node + Express API | **Planned** | Auth, ingestion, RAG, quiz generation. |
-| PostgreSQL + pgvector | **Planned** | App data + vectors. |
-
----
-
-## 3. Website pages and responsibilities
-
-| Route | Responsibility |
-|-------|----------------|
-| **Home `/`** | Explain value: in-flow capture, structured help, course-aware RAG, misconception graph; CTAs to download and sign up. |
-| **Download `/download`** | Single place for “Get the extension”: Chrome Web Store URL or developer instructions (Load unpacked). |
-| **Login `/login`** | Collect credentials; later POST to `/auth/login`, store JWT (httpOnly cookie or secure storage pattern you choose). |
-| **Sign up `/signup`** | Registration; later POST to `/auth/register`. |
-| **Welcome `/welcome`** | Post-login landing; can deep-link to extension install or OAuth (Canvas/Brightspace) setup on the backend. |
-
-The website does **not** host Ask/Quiz UI; that lives in the **extension side panel** for contextual, always-available assistance while browsing notes and problems.
-
----
-
-## 4. Chrome extension architecture (target)
-
-### 4.1 Why it’s not “the same” as the website
-
-- The extension must ship **Manifest V3** assets: **background service worker**, optional **content scripts**, **side_panel** (and/or `action` popup), **permissions** (`storage`, `sidePanel`, host permissions for LMS domains).
-- Build output is a **loaded unpacked folder** or **Chrome Web Store package**, not the same `index.html` host as Vite unless you embed the panel in an extension-only bundle.
-
-**Recommended organization:** same git repo, second package:
-
-- `apps/web` — this Vite site (or keep root as today).
-- `apps/extension` — extension build, may reuse React for the panel via a second Vite config or a shared component library.
-
-### 4.2 “Pop ups on the side” → Side Panel API
-
-Chrome’s **Side Panel** API gives a **vertical panel** docked beside the page — this matches “assistant beside the document” better than a small toolbar popup. You can still use a **popup** for quick actions, but **Ask mode**, **Quiz mode**, and **chat-style threads** are usually **routes or tabs inside the side panel** (one React app, multiple views).
-
-### 4.3 Operating modes (from your product spec)
-
-| Mode | Behavior |
-|------|----------|
-| **Passive ingestion** | Content script (on allowlisted LMS URLs such as Brightspace) extracts or signals new/updated materials; backend chunks, embeds, writes to pgvector. Runs without opening the panel. |
-| **Active assistant** | User opens side panel: **Hub** → **Ask/capture** (structured explanation + RAG) or **Quiz** (lecture selection → MCQ → results + misconception updates). |
-
-### 4.4 Ask vs Quiz vs “chat”
-
-- **Ask / capture:** one-shot or short thread; server retrieves lecture chunks, returns structured blocks (question, solution, main concept, relevant lecture).
-- **Quiz:** separate flow: select lectures → generated questions → score + history + share stats.
-- **Chat mode:** can be **the same panel** with a conversational layout; still **RAG + LLM** on the backend, with session state in Postgres. It is **not** a separate product — it’s a **UI mode** unless you intentionally split mobile/web chat later.
+```
+Student types question
+        |
+        v
+Extension sends POST /api/v1/analyze
+  { content: "Why does L'Hopital's rule work?", courseId: "MATH201" }
+        |
+        v
+1. retrieveChunks(uid, courseId, question)
+   - Embed question with text-embedding-004
+   - Firestore findNearest (cosine similarity) on course chunks
+   - Return top-5 matching chunks
+        |
+        v
+2. explainConcept(question, ragContext, smgHistory)
+   - Gemini 2.0 Flash generates structured JSON:
+     { solution, mainConcept, relevantLecture, keyFormulas, personalizedCallout }
+        |
+        v
+3. classifyConcept(question, solution)
+   - Second Gemini call classifies interaction:
+     { conceptNode: "lhopitals_rule", errorType: "knowledge_gap", confidence: 0.85 }
+        |
+        v
+4. saveInteraction(uid, { courseId, content, eventType, response, classifierTag })
+   - Writes to users/{uid}/events/{auto-id}
+        |
+        v
+5. recordInteraction(uid, "lhopitals_rule", { errorType, confidence, courseId })
+   - SM-2 algorithm updates users/{uid}/smg/lhopitals_rule:
+     easeFactor, reviewIntervalDays, nextReviewDate, accuracyRate
+        |
+        v
+Response returned to extension with all fields
+```
 
 ---
 
-## 5. Backend subsystems (target)
+## Data Flow: Quiz Mode
 
-### 5.1 Ingestion pipeline
-
-- Accept course materials (files, LMS API where available, or processed exports).
-- **Chunk** text, **embed** (e.g. OpenAI `text-embedding-3-small` or later Gemma/other).
-- Store in **PostgreSQL** + **pgvector**; link chunks to course, lecture, user.
-
-### 5.2 AI pipeline
-
-- **Retrieve** relevant chunks (similarity search + filters).
-- **Gemini** (e.g. `gemini-2.x` / your chosen model) for explanation, quiz generation, **misconception classification**.
-- Persist interactions to improve **misconception graph** and spaced repetition.
-
-### 5.3 Auth
-
-- **JWT** for sessions after login.
-- **OAuth 2.0** for LMS (Canvas is common; **Brightspace/D2L** may use institution-specific OAuth/LTI — implement what your school/API access allows).
-
-### 5.4 OCR
-
-- **Google Cloud Vision** on the server for screenshots/handwriting sent from the extension or uploaded assets.
-
----
-
-## 6. Brightspace / LMS context
-
-- **Extension alone** cannot magically read all Brightspace course content without permissions and APIs.
-- Typical patterns:
-  - **Backend OAuth** to LMS where the institution exposes APIs.
-  - **User-uploaded** syllabi/PDFs/PowerPoints to ingestion.
-  - **Content scripts** limited to **helper** behavior (e.g. detecting you’re on a lesson page and suggesting “add to corpus”) combined with **server-side** fetching if your app is registered with the LMS.
-
-Course ingestion details are **policy- and school-dependent**; the architecture assumes **your backend** is the source of truth for vectors and lecture links shown in the panel.
+```
+Student clicks "Generate question"
+        |
+        v
+POST /api/v1/quiz { topic?: "integration", courseId?: "MATH201" }
+        |
+        v
+1. If no topic: getWeakestConcepts(uid) picks from SM-2 due concepts
+2. retrieveChunks for context
+3. generateQuiz(topic, chunks, smgData, count)
+   - Gemini generates MCQ with 4 options, correct answer, explanation
+   - Difficulty auto-adjusted by student accuracy
+        |
+        v
+Response: { question, options, answer, explanation, difficulty, conceptNode }
+        |
+        v
+Student selects answer -> POST /api/v1/quiz/answer
+  { conceptNode, selectedAnswer, correctAnswer, courseId }
+        |
+        v
+recordInteraction updates SMG (SM-2):
+  - Correct: ease factor increases, interval grows
+  - Incorrect: interval resets to 1 day, ease factor decreases
+```
 
 ---
 
-## 7. Tech stack reference
+## Data Flow: Ingestion
 
-| Layer | Technology |
-|-------|------------|
-| Website | React, Vite, TypeScript, React Router |
-| Extension | Manifest V3, service worker, content scripts, Side Panel (planned) |
-| Backend | Node.js, Express (planned) |
-| Database | PostgreSQL + **pgvector** (planned) |
-| LLM | Gemini API (explain, quiz, classification) (planned) |
-| Embeddings | OpenAI embeddings (or successor) (planned) |
-| OCR | Google Cloud Vision (planned) |
-| Auth | JWT + OAuth for LMS (planned) |
-| Hosting | Railway or Render for API (planned) |
+```
+Option A: File Upload
+  POST /api/v1/ingest/upload (multipart form)
+    |
+    v
+  1. OCR if image/PDF (Cloud Vision API)
+  2. chunkText(text) -> ~500 char overlapping chunks
+  3. embedBatch(chunks) -> 768-dim vectors
+  4. Batch write to Firestore: users/{uid}/courses/{courseId}/chunks/
+  5. Upload to Gemini File API -> store URI in Firestore files subcollection
+
+Option B: Content Script (Auto-Ingest)
+  POST /api/v1/ingest/text
+    { courseId, rawContent, sourcePlatform: "brightspace" }
+    |
+    v
+  Same chunk -> embed -> store pipeline (steps 2-4 above)
+```
 
 ---
 
-## 8. Summary
+## SM-2 Spaced Repetition Algorithm
 
-- **This repo:** the **public website** and developer workflow (`npm run dev`, `npm run build`).
-- **Extension:** **separate build**, ideally **same monorepo**, same API — side panel hosts Ask, Quiz, and optional chat UI; content scripts support ingestion on LMS pages.
-- **Brightspace/course context:** owned by **backend ingestion + RAG**, not by the static site.
+The SM-2 algorithm (`services/misconception.js`) schedules concept review:
 
-For day-to-day development, implement the **extension package** next, point **Download** to the store or unpacked path, and add the **Express + Postgres** service when you’re ready to persist users and vectors.
+| Quality | Meaning | Effect on Interval |
+|---------|---------|-------------------|
+| 0-2 | Incorrect answer | Reset to 1 day |
+| 3 | Hard correct / exposure | 1 -> 6 -> interval * easeFactor |
+| 4 | Correct | Same growth |
+| 5 | Easy (no error type) | Same growth, ease factor increases |
+
+**Ease factor** adjusts: `EF' = EF + (0.1 - (5-q) * (0.08 + (5-q) * 0.02))`, minimum 1.3.
+
+**Drill queue urgency** = (overdue days * 2) + ((1 - accuracy) * 5). Higher = review first.
+
+---
+
+## Authentication
+
+```
+Extension:
+  chrome.identity.getAuthToken() -> Google OAuth token
+       -> GoogleAuthProvider.credential(null, token)
+       -> signInWithCredential(auth, credential)
+       -> Firebase ID token for API calls
+
+Web App:
+  signInWithPopup(auth, GoogleAuthProvider) -> Firebase ID token
+  OR
+  signInWithEmailAndPassword(auth, email, password) -> Firebase ID token
+
+Backend:
+  Authorization: Bearer <firebase-id-token>
+       -> auth.verifyIdToken(token)
+       -> req.user = { uid, email, name, ... }
+```
+
+---
+
+## Security Model
+
+- **Firestore access**: All data scoped to `users/{uid}/` -- users can only access their own data
+- **Token verification**: Every API route uses `requireFirebaseAuth` middleware
+- **No stored credentials**: Extension uses browser's existing Brightspace session, never stores passwords
+- **Gemini File URIs**: Stored server-side in Firestore, never exposed to client
+- **Input validation**: Content length limits on Express JSON parser (1MB)
+
+---
+
+## Environment Variables
+
+### Backend (`server/.env`)
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GEMINI_API_KEY` | Yes | Gemini API key from AI Studio |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Yes* | Path to Firebase service account JSON |
+| `FIREBASE_PROJECT_ID` | Yes* | Firebase project ID (alternative to credentials file) |
+| `PORT` | No | API port (default: 3000) |
+
+*One of GOOGLE_APPLICATION_CREDENTIALS or FIREBASE_PROJECT_ID is required.
+
+### Web App (`web/.env.local`)
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `VITE_FIREBASE_API_KEY` | Yes | Firebase web API key |
+| `VITE_FIREBASE_AUTH_DOMAIN` | Yes | Firebase auth domain |
+| `VITE_FIREBASE_PROJECT_ID` | Yes | Firebase project ID |
+| `VITE_API_URL` | No | Backend URL (default: http://localhost:3000) |
+
+### Extension (`extension/.env`)
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `VITE_FIREBASE_API_KEY` | Yes | Same as web app |
+| `VITE_FIREBASE_AUTH_DOMAIN` | Yes | Same as web app |
+| `VITE_FIREBASE_PROJECT_ID` | Yes | Same as web app |
+| `VITE_API_URL` | No | Backend URL (default: http://localhost:3000) |
