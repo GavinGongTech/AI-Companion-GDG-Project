@@ -1,18 +1,36 @@
 import { Router } from "express";
+import { explainConcept } from "../services/gemini.js";
+import { retrieveChunks } from "../services/rag.js";
+import { requireFirebaseAuth } from "../middleware/auth.js";
+import { validate } from "../middleware/validate.js";
+import { explainSchema } from "../schemas.js";
 
 export const explainRouter = Router();
 
-explainRouter.post("/", (req, res) => {
-  const question =
-    typeof req.body?.question === "string" ? req.body.question : "";
+/**
+ * POST /api/v1/explain — Explain a concept (lightweight, no SMG update).
+ * For full analyze + classify + SMG flow, use POST /api/v1/analyze instead.
+ */
+explainRouter.post("/", requireFirebaseAuth, validate(explainSchema), async (req, res, next) => {
+  try {
+    const uid = req.user.uid;
+    const { question, courseId } = req.body;
 
-  res.json({
-    question: question || "—",
-    solution:
-      "Static stub: connect Gemini + pgvector RAG here. Preview shows structured fields your extension expects.",
-    mainConcept:
-      "Concept tagging will use your misconception classifier once wired.",
-    relevantLecture:
-      "Chunk #42 — Week 3 lecture notes (vector retrieval placeholder)",
-  });
+    // Retrieve RAG context
+    const chunks = await retrieveChunks(uid, courseId, question);
+    const context = chunks.join("\n\n---\n\n");
+
+    const result = await explainConcept(question, context);
+
+    res.json({
+      question,
+      solution: result.solution,
+      mainConcept: result.mainConcept,
+      relevantLecture: result.relevantLecture,
+      keyFormulas: result.keyFormulas,
+      personalizedCallout: result.personalizedCallout,
+    });
+  } catch (err) {
+    next(err);
+  }
 });

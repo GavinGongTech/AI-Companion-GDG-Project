@@ -1,7 +1,18 @@
-import { Outlet, NavLink } from "react-router-dom";
+import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import { signOut } from "firebase/auth";
+import { auth } from "../lib/firebase";
+import { useAuth } from "../lib/auth";
 import styles from "./Layout.module.css";
 
 export function Layout() {
+  const user = useAuth();
+  const navigate = useNavigate();
+
+  async function handleSignOut() {
+    await signOut(auth);
+    navigate("/");
+  }
+
   return (
     <div className={styles.shell}>
       <div className={styles.bgGrid} aria-hidden />
@@ -20,17 +31,39 @@ export function Layout() {
           >
             Download
           </NavLink>
-          <NavLink
-            to="/login"
-            className={({ isActive }) =>
-              `${styles.navLink} ${isActive ? styles.navActive : ""}`
-            }
-          >
-            Log in
-          </NavLink>
-          <NavLink to="/signup" className={styles.cta}>
-            Sign up
-          </NavLink>
+          {user ? (
+            <>
+              <NavLink
+                to="/dashboard"
+                className={({ isActive }) =>
+                  `${styles.navLink} ${isActive ? styles.navActive : ""}`
+                }
+              >
+                Dashboard
+              </NavLink>
+              <button
+                type="button"
+                className={styles.cta}
+                onClick={handleSignOut}
+              >
+                Sign out
+              </button>
+            </>
+          ) : (
+            <>
+              <NavLink
+                to="/login"
+                className={({ isActive }) =>
+                  `${styles.navLink} ${isActive ? styles.navActive : ""}`
+                }
+              >
+                Log in
+              </NavLink>
+              <NavLink to="/signup" className={styles.cta}>
+                Sign up
+              </NavLink>
+            </>
+          )}
         </nav>
       </header>
       <main className={styles.main}>
