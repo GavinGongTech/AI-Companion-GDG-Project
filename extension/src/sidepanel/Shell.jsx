@@ -19,6 +19,9 @@ export function Shell({ children }) {
           <NavLink to="/quiz" className={navClass}>
             Quiz
           </NavLink>
+          <NavLink to="/graph" className={navClass}>
+            Graph
+          </NavLink>
         </nav>
       </header>
       <main className={styles.body}>{children}</main>

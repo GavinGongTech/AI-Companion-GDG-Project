@@ -13,7 +13,7 @@ export function Welcome() {
         </p>
         <ul className={styles.checklist}>
           <li>Side panel: capture, explain, quiz</li>
-          <li>Backend: ingestion · AI · pgvector</li>
+          <li>Backend: ingestion · AI · knowledge graph</li>
           <li>Misconception graph updates every session</li>
         </ul>
         <div className={styles.welcomeActions}>

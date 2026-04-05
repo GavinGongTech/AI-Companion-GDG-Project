@@ -1,12 +1,47 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import {
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+} from "firebase/auth";
+import { auth } from "../lib/firebase";
 import styles from "./AuthPages.module.css";
+
+const googleProvider = new GoogleAuthProvider();
 
 export function Login() {
   const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  function onSubmit(e) {
+  async function onSubmit(e) {
     e.preventDefault();
-    navigate("/welcome");
+    setError("");
+    setLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      navigate("/dashboard");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onGoogleSignIn() {
+    setError("");
+    setLoading(true);
+    try {
+      await signInWithPopup(auth, googleProvider);
+      navigate("/dashboard");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -15,9 +50,9 @@ export function Login() {
         <p className={styles.eyebrow}>Welcome back</p>
         <h1 className={styles.title}>Log in</h1>
         <p className={styles.lede}>
-          Use your university email. Sessions use JWT; Canvas connects via
-          OAuth when you enable course ingestion.
+          Sign in with your email or Google account to continue studying.
         </p>
+        {error && <p className={styles.error}>{error}</p>}
         <form className={styles.form} onSubmit={onSubmit}>
           <label className={styles.field}>
             <span className={styles.label}>Email</span>
@@ -27,6 +62,8 @@ export function Login() {
               name="email"
               autoComplete="email"
               placeholder="you@university.edu"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
             />
           </label>
@@ -38,13 +75,30 @@ export function Login() {
               name="password"
               autoComplete="current-password"
               placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               required
             />
           </label>
-          <button type="submit" className={styles.primaryBtnWide}>
-            Continue
+          <button
+            type="submit"
+            className={styles.primaryBtnWide}
+            disabled={loading}
+          >
+            {loading ? "Signing in..." : "Continue"}
           </button>
         </form>
+        <div className={styles.divider}>
+          <span className={styles.dividerText}>or</span>
+        </div>
+        <button
+          type="button"
+          className={styles.secondaryBtnWide}
+          onClick={onGoogleSignIn}
+          disabled={loading}
+        >
+          Continue with Google
+        </button>
         <p className={styles.footerLine}>
           No account?{" "}
           <Link to="/signup" className={styles.inlineLink}>

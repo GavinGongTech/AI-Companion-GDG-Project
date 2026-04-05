@@ -228,6 +228,82 @@
   color: var(--text-muted);
 }
 
+/* ── Comparison table ── */
+
+.comparison {
+  padding: 0 clamp(1.25rem, 4vw, 2.5rem) 3.5rem;
+}
+
+.comparisonTitle {
+  margin: 0 0 1.5rem;
+  font-size: 1.25rem;
+  text-align: center;
+  letter-spacing: -0.02em;
+}
+
+.comparisonTableWrap {
+  max-width: 1040px;
+  margin: 0 auto;
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.comparisonTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  background: rgba(13, 17, 24, 0.65);
+}
+
+.comparisonTable th,
+.comparisonTable td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.comparisonTable th {
+  font-weight: 600;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.comparisonTable th:first-child {
+  color: var(--text-primary);
+}
+
+.comparisonTable th:nth-child(2) {
+  color: var(--accent);
+}
+
+.comparisonTable tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.comparisonTable tbody tr {
+  transition: background 0.15s ease;
+}
+
+.comparisonTable tbody tr:hover {
+  background: rgba(62, 224, 208, 0.04);
+}
+
+.comparisonTable td:first-child {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.cellYes {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ── CTA band ── */
+
 .ctaBand {
   padding: 0 clamp(1.25rem, 4vw, 2.5rem) 2rem;
 }
@@ -292,5 +368,14 @@
 
   .featureGrid {
     grid-template-columns: 1fr;
+  }
+
+  .comparisonTable {
+    font-size: 0.82rem;
+  }
+
+  .comparisonTable th,
+  .comparisonTable td {
+    padding: 0.6rem 0.65rem;
   }
 }
