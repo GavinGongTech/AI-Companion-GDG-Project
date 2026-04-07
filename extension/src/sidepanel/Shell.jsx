@@ -15,11 +15,8 @@ export function Shell({ children }) {
       </header>
 
       <nav className={styles.nav}>
-        <NavLink to="/ask" className={tabClass}>
-          Ask
-        </NavLink>
-        <NavLink to="/quiz" className={tabClass}>
-          Quiz
+        <NavLink to="/home" className={tabClass}>
+          Home
         </NavLink>
         <NavLink to="/graph" className={tabClass}>
           My Graph

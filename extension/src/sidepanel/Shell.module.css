@@ -28,9 +28,8 @@
 
 .nav {
   display: flex;
-  gap: 8px;
+  gap: 12px;
   padding: 12px 16px;
-  overflow-x: auto;
   background: #ffffff;
   border-bottom: 1px solid #e5e7eb;
 }
@@ -39,7 +38,7 @@
   text-decoration: none;
   color: #6b7280;
   font-size: 13px;
-  padding: 8px 12px;
+  padding: 10px 16px;
   border-radius: 999px;
   white-space: nowrap;
   background: #f3f4f6;
