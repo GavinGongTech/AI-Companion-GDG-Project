@@ -1,14 +1,11 @@
 import { embedBatch } from "./embeddings.js";
 import { extractText, extractTextFromPDF } from "./ocr.js";
+import { ai } from "./gemini.js";
 import { db } from "../db/firebase.js";
 import { FieldValue } from "firebase-admin/firestore";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { env } from "../env.js";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-
-const genai = new GoogleGenerativeAI(env.geminiApiKey);
 
 const CHUNK_SIZE = 500;   // characters per chunk
 const CHUNK_OVERLAP = 50; // overlap between adjacent chunks
@@ -122,8 +119,7 @@ export async function uploadToGeminiFileAPI(uid, courseId, filePath, filename, s
     return { fileUri: doc.geminiFileUri, ingestedAt: doc.uploadedAt };
   }
 
-  // Upload to Gemini File API
-  const fileManager = genai.getFileManager();
+  // Upload to Gemini File API via @google/genai
   const ext = path.extname(filename).toLowerCase();
   const mimeTypes = {
     ".pdf": "application/pdf",
@@ -135,11 +131,14 @@ export async function uploadToGeminiFileAPI(uid, courseId, filePath, filename, s
     ".jpeg": "image/jpeg",
   };
 
-  const uploaded = await fileManager.uploadFile(filePath, {
-    displayName: filename,
-    mimeType: mimeTypes[ext] || "application/octet-stream",
+  const uploaded = await ai.files.upload({
+    file: filePath,
+    config: {
+      displayName: filename,
+      mimeType: mimeTypes[ext] || "application/octet-stream",
+    },
   });
-  const geminiFileUri = uploaded.file.uri;
+  const geminiFileUri = uploaded.uri;
 
   // Store file record in Firestore
   await filesRef.add({

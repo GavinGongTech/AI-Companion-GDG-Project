@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { env } from "../env.js";
 
 /**
@@ -14,23 +14,7 @@ function parseJsonResponse(text) {
   return JSON.parse(cleaned);
 }
 
-const genai = new GoogleGenerativeAI(env.geminiApiKey);
-
-const model = genai.getGenerativeModel({
-  model: "gemini-2.0-flash",
-  generationConfig: {
-    responseMimeType: "application/json",
-    temperature: 0.4,
-  },
-});
-
-const creativeModel = genai.getGenerativeModel({
-  model: "gemini-2.0-flash",
-  generationConfig: {
-    responseMimeType: "application/json",
-    temperature: 0.7,
-  },
-});
+export const ai = new GoogleGenAI({ apiKey: env.geminiApiKey });
 
 /**
  * Classify a student interaction to identify the misconception concept node and error type.
@@ -58,8 +42,15 @@ Respond with ONLY a JSON object:
   "confidence": <number between 0 and 1>
 }`;
 
-  const result = await model.generateContent(prompt);
-  return parseJsonResponse(result.response.text());
+  const result = await ai.models.generateContent({
+    model: "gemini-2.0-flash",
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      temperature: 0.4,
+    },
+  });
+  return parseJsonResponse(result.text);
 }
 
 /**
@@ -106,8 +97,15 @@ Respond with ONLY a JSON object:
   "personalizedCallout": "<a personalized note based on the student's history, or empty string if no history>"
 }`;
 
-  const result = await model.generateContent(prompt);
-  return parseJsonResponse(result.response.text());
+  const result = await ai.models.generateContent({
+    model: "gemini-2.0-flash",
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      temperature: 0.4,
+    },
+  });
+  return parseJsonResponse(result.text);
 }
 
 /**
@@ -171,8 +169,15 @@ Respond with ONLY a JSON object:
   ]
 }`;
 
-  const result = await creativeModel.generateContent(prompt);
-  const parsed = parseJsonResponse(result.response.text());
+  const result = await ai.models.generateContent({
+    model: "gemini-2.0-flash",
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      temperature: 0.7,
+    },
+  });
+  const parsed = parseJsonResponse(result.text);
 
   // Backward compat: if caller expects a single question shape
   if (count === 1 && parsed.questions?.length > 0) {
