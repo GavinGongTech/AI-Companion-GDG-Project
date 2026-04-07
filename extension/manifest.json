@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "Study Flow",
+  "version": "0.0.1",
+  "description": "Contextual math study assistant — Ask, Quiz, and course-aware help.",
+  "action": {
+    "default_title": "Open Study Flow"
+  },
+  "side_panel": {
+    "default_path": "dist/sidepanel.html"
+  },
+  "background": {
+    "service_worker": "dist/background.js",
+    "type": "module"
+  },
+  "permissions": [
+    "storage",
+    "sidePanel",
+    "activeTab",
+    "scripting",
+    "identity"
+  ],
+  "host_permissions": [
+    "http://localhost:3000/*",
+    "http://127.0.0.1:3000/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://brightspace.nyu.edu/*",
+        "*://*.gradescope.com/*"
+      ],
+      "js": ["dist/content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

@@ -1,58 +1,57 @@
 .shell {
   min-height: 100vh;
+  background: #f7f7f8;
+  color: #111827;
   display: flex;
   flex-direction: column;
-  background: var(--bg-deep);
-  color: var(--text-primary);
 }
 
-.top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.65rem 0.85rem;
-  border-bottom: 1px solid var(--border-subtle);
-  background: rgba(6, 8, 12, 0.92);
-  backdrop-filter: blur(10px);
+.header {
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
 }
 
-.brand {
-  font-weight: 700;
-  font-size: 0.85rem;
-  letter-spacing: -0.02em;
+.kicker {
+  margin: 0;
+  font-size: 11px;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.title {
+  margin: 4px 0 0;
+  font-size: 20px;
+  font-weight: 600;
 }
 
 .nav {
   display: flex;
-  gap: 0.35rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
 }
 
-.pill {
-  padding: 0.35rem 0.65rem;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--text-muted);
+.tab {
   text-decoration: none;
-  border: 1px solid transparent;
+  color: #6b7280;
+  font-size: 13px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: #f3f4f6;
 }
 
-.pill:hover {
-  color: var(--text-primary);
-  border-color: var(--border-subtle);
+.active {
+  color: #111827;
+  background: #e5e7eb;
+  font-weight: 600;
 }
 
-.pillActive {
-  color: var(--bg-deep);
-  background: var(--accent);
-  border-color: transparent;
-}
-
-.body {
+.main {
+  padding: 16px;
   flex: 1;
-  padding: 0.85rem;
-  overflow: auto;
+  overflow-y: auto;
 }
