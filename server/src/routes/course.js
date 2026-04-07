@@ -36,10 +36,10 @@ courseRouter.get("/:courseId", requireFirebaseAuth, async (req, res, next) => {
 
     // Get ingested files
     const filesSnap = await courseRef.collection("files").get();
-    const ingestedDocs = filesSnap.docs.map((doc) => ({
-      fileId: doc.id,
-      ...doc.data(),
-    }));
+    const ingestedDocs = filesSnap.docs.map((doc) => {
+      const { geminiFileUri, fileHash, ...rest } = doc.data();
+      return { fileId: doc.id, ...rest };
+    });
 
     // Get chunk count
     const chunksSnap = await courseRef.collection("chunks").count().get();

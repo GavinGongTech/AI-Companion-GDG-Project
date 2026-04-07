@@ -16,7 +16,7 @@ export function Download() {
             Add to Chrome (store link TBD)
           </button>
           <span className={styles.hint}>
-            Dev: run <code className={styles.code}>npm run build --workspace=extension</code>,
+            Dev: run <code className={styles.code}>bun run --cwd extension build</code>,
             then Chrome → Extensions → Developer mode → Load unpacked → select{" "}
             <code className={styles.code}>extension/dist</code>.
           </span>

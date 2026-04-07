@@ -8,9 +8,15 @@ import { env } from "./env.js";
 
 export const app = express();
 
+// In production, restrict CORS to explicit origins via ALLOWED_ORIGINS env var.
+// In development, allow all origins for local testing.
+const corsOrigin = env.allowedOrigins
+  ? env.allowedOrigins.split(",").map((s) => s.trim())
+  : true;
+
 app.use(
   cors({
-    origin: true,
+    origin: corsOrigin,
     credentials: true,
   }),
 );
