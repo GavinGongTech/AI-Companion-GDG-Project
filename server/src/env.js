@@ -6,4 +6,6 @@ export const env = {
   geminiApiKey: process.env.GEMINI_API_KEY ?? "",
   firebaseProjectId: process.env.FIREBASE_PROJECT_ID ?? "",
   googleApplicationCredentials: process.env.GOOGLE_APPLICATION_CREDENTIALS ?? "",
+  // Comma-separated allowed origins for CORS; defaults to permissive in dev
+  allowedOrigins: process.env.ALLOWED_ORIGINS ?? "",
 };

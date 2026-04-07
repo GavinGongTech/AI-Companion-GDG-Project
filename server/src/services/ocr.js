@@ -37,8 +37,8 @@ export async function extractTextFromBase64(base64Image) {
  * @returns {Promise<string>} Extracted plain text
  */
 export async function extractTextFromPDF(pdfPath) {
-  const fs = await import("node:fs");
-  const content = fs.readFileSync(pdfPath);
+  const { readFile } = await import("node:fs/promises");
+  const content = await readFile(pdfPath);
   const [result] = await client.documentTextDetection({
     image: { content: content.toString("base64") },
   });

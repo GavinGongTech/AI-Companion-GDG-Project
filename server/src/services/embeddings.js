@@ -1,8 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { env } from "../env.js";
-
-const genai = new GoogleGenerativeAI(env.geminiApiKey);
-const model = genai.getGenerativeModel({ model: "text-embedding-004" });
+import { ai } from "./gemini.js";
 
 /**
  * Generate a 768-dimension embedding vector for the given text.
@@ -11,8 +7,11 @@ const model = genai.getGenerativeModel({ model: "text-embedding-004" });
  * @returns {Promise<number[]>} 768-dimension float array
  */
 export async function embed(text) {
-  const result = await model.embedContent(text);
-  return result.embedding.values;
+  const result = await ai.models.embedContent({
+    model: "text-embedding-004",
+    contents: text,
+  });
+  return result.embeddings[0].values;
 }
 
 /**
@@ -22,7 +21,9 @@ export async function embed(text) {
  * @returns {Promise<number[][]>}
  */
 export async function embedBatch(texts) {
-  const requests = texts.map((text) => ({ content: { parts: [{ text }] } }));
-  const result = await model.batchEmbedContents({ requests });
+  const result = await ai.models.embedContent({
+    model: "text-embedding-004",
+    contents: texts,
+  });
   return result.embeddings.map((e) => e.values);
 }
