@@ -1,107 +1,84 @@
 import { useState } from "react";
-import { apiFetch } from "../lib/api";
-import { MathRenderer } from "../components/MathRenderer";
-import "katex/dist/katex.min.css";
 import styles from "./Pages.module.css";
 
 export function Ask() {
-  const [question, setQuestion] = useState("");
-  const [courseId, setCourseId] = useState("");
-  const [response, setResponse] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [input, setInput] = useState("");
+  const [submitted, setSubmitted] = useState(false);
 
-  async function onSubmit(e) {
+  function handleSubmit(e) {
     e.preventDefault();
-    if (!question.trim()) return;
-    setLoading(true);
-    setError(null);
-    setResponse(null);
-    try {
-      const data = await apiFetch("/api/v1/analyze", {
-        method: "POST",
-        body: JSON.stringify({ content: question.trim(), courseId: courseId || undefined }),
-      });
-      setResponse(data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    setSubmitted(true);
   }
 
   return (
     <div className={styles.stack}>
-      <p className={styles.eyebrow}>capture ...</p>
-      <h1 className={styles.h1}>Ask</h1>
-      <p className={styles.lede}>
-        Type or paste a problem. Study Flow will explain it using your course materials.
-      </p>
+      <div className={styles.section}>
+        <p className={styles.eyebrow}>Ask mode</p>
+        <h2 className={styles.h1}>What are you confused about?</h2>
+        <p className={styles.text}>Any specific question you are confused on?</p>
+        <p className={styles.text}>Or is there anything you wanna prioritize?</p>
+      </div>
 
-      <form className={styles.form} onSubmit={onSubmit}>
-        <label className={styles.label} htmlFor="question">
-          Your question
-        </label>
-        <textarea
-          id="question"
-          className={styles.textarea}
-          placeholder="e.g. Why does L'Hopital's rule work?"
-          rows={4}
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-        />
-        <label className={styles.label} htmlFor="courseId">
-          Course ID (optional)
-        </label>
-        <input
-          id="courseId"
-          className={styles.textarea}
-          style={{ minHeight: "auto", padding: "0.45rem 0.65rem" }}
-          placeholder="e.g. MATH201"
-          value={courseId}
-          onChange={(e) => setCourseId(e.target.value)}
-        />
-        <button type="submit" className={styles.primary} disabled={loading || !question.trim()}>
-          {loading ? "Thinking..." : "Explain"}
-        </button>
-      </form>
+      <div className={styles.card}>
+        <div className={styles.row}>
+          <button className={styles.secondaryButton} type="button">
+            Use Selected Text
+          </button>
+          <button className={styles.secondaryButton} type="button">
+            Screenshot
+          </button>
+        </div>
 
-      {error && <p className={styles.error}>{error}</p>}
+        <form className={styles.form} onSubmit={handleSubmit}>
+          <textarea
+            className={styles.textarea}
+            rows={6}
+            placeholder="Type your question here..."
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+          />
 
-      {response && (
-        <div className={styles.cards}>
-          <div className={styles.card}>
-            <p className={styles.cardTitle}>Solution</p>
-            <div className={styles.cardBody}><MathRenderer text={response.solution} /></div>
+          <div className={styles.rowBetween}>
+            <button className={styles.iconButton} type="button">
+              +
+            </button>
+            <button className={styles.iconButton} type="submit">
+              →
+            </button>
           </div>
-          {response.mainConcept && (
-            <div className={styles.card}>
-              <p className={styles.cardTitle}>Concept</p>
-              <p className={styles.cardBody}>{response.mainConcept}</p>
-            </div>
-          )}
-          {response.keyFormulas?.length > 0 && (
-            <div className={styles.card}>
-              <p className={styles.cardTitle}>Key Formulas</p>
-              <ul className={styles.checkList}>
-                {response.keyFormulas.map((f, i) => (
-                  <li key={i} className={styles.checkRow}><MathRenderer text={f} /></li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {response.relevantLecture && (
-            <div className={styles.card}>
-              <p className={styles.cardTitle}>Relevant Material</p>
-              <p className={styles.cardBody}>{response.relevantLecture}</p>
-            </div>
-          )}
-          {response.personalizedCallout && (
-            <div className={styles.card}>
-              <p className={styles.cardTitle}>For You</p>
-              <div className={styles.cardBody}><MathRenderer text={response.personalizedCallout} /></div>
-            </div>
-          )}
+        </form>
+      </div>
+
+      {submitted && (
+        <div className={styles.card}>
+          <p className={styles.cardTitle}>Question</p>
+          <p className={styles.text}>
+            {input || "Why does integration by parts work?"}
+          </p>
+
+          <p className={styles.cardTitle}>Step-by-step Solution</p>
+          <ol className={styles.simpleList}>
+            <li>Start from the product rule: (uv)' = u'v + uv'.</li>
+            <li>Rearrange it to isolate uv'.</li>
+            <li>Integrate both sides to get ∫u dv = uv − ∫v du.</li>
+          </ol>
+
+          <p className={styles.cardTitle}>Main Concept</p>
+          <p className={styles.text}>Integration techniques</p>
+
+          <p className={styles.cardTitle}>Key Formula</p>
+          <p className={styles.text}>∫u dv = uv − ∫v du</p>
+
+          <p className={styles.cardTitle}>Relevant Lecture</p>
+          <p className={styles.text}>Lecture 8: Integration by Parts</p>
+
+          <div className={styles.calloutBox}>
+            <p className={styles.calloutTitle}>Personalized Callout</p>
+            <p className={styles.text}>
+              You usually struggle more with choosing <strong>u</strong> and{" "}
+              <strong>dv</strong> than with the formula itself.
+            </p>
+          </div>
         </div>
       )}
     </div>

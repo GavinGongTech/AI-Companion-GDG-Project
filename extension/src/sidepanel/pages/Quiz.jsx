@@ -1,167 +1,112 @@
-import { useState, useEffect } from "react";
-import { apiFetch } from "../lib/api";
-import { MathRenderer } from "../components/MathRenderer";
-import "katex/dist/katex.min.css";
+import { useState } from "react";
 import styles from "./Pages.module.css";
 
+const topics = [
+  { id: 1, name: "Lecture 1", note: "you did this 0x times" },
+  { id: 2, name: "Lecture 2", note: "you did this 1x time" },
+  { id: 3, name: "Lecture 3", note: "weak area" },
+];
+
 export function Quiz() {
-  const [state, setState] = useState("idle"); // idle | loading | question | answered
-  const [quiz, setQuiz] = useState(null);
-  const [selected, setSelected] = useState(null);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState(null);
-  const [topic, setTopic] = useState("");
-  const [weakConcepts, setWeakConcepts] = useState([]);
-  const [score, setScore] = useState({ correct: 0, total: 0 });
+  const [selectedTopics, setSelectedTopics] = useState([1]);
+  const [started, setStarted] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [answer, setAnswer] = useState("");
 
-  // Load weak concepts on mount
-  useEffect(() => {
-    apiFetch("/api/v1/quiz/queue")
-      .then((data) => setWeakConcepts(data.queue?.slice(0, 5) || []))
-      .catch(() => {}); // Silently fail if no data yet
-  }, []);
-
-  async function generate(overrideTopic) {
-    setState("loading");
-    setError(null);
-    setQuiz(null);
-    setSelected(null);
-    setResult(null);
-    try {
-      const data = await apiFetch("/api/v1/quiz", {
-        method: "POST",
-        body: JSON.stringify({ topic: overrideTopic || topic || undefined }),
-      });
-      setQuiz(data);
-      setState("question");
-    } catch (err) {
-      setError(err.message);
-      setState("idle");
-    }
-  }
-
-  async function submitAnswer(index) {
-    setSelected(index);
-    setState("answered");
-    const isCorrect = index === quiz.answer;
-    setResult({ isCorrect, explanation: quiz.explanation });
-    setScore((s) => ({ correct: s.correct + (isCorrect ? 1 : 0), total: s.total + 1 }));
-
-    // Record answer in backend
-    try {
-      await apiFetch("/api/v1/quiz/answer", {
-        method: "POST",
-        body: JSON.stringify({
-          conceptNode: quiz.conceptNode || quiz.topic,
-          selectedAnswer: index,
-          correctAnswer: quiz.answer,
-        }),
-      });
-    } catch {
-      // Non-critical -- don't block UI
-    }
+  function toggleTopic(id) {
+    setSelectedTopics((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
   }
 
   return (
     <div className={styles.stack}>
-      <p className={styles.eyebrow}>test yourself ...</p>
-      <h1 className={styles.h1}>Quiz</h1>
-      <p className={styles.lede}>
-        Generate questions from your course materials and track what you know.
-      </p>
+      <div className={styles.section}>
+        <p className={styles.eyebrow}>Quiz mode</p>
+        <h2 className={styles.h1}>Pick the topics you want to be quizzed on</h2>
+      </div>
 
-      {weakConcepts.length > 0 && state === "idle" && (
-        <div className={styles.card}>
-          <p className={styles.cardTitle}>Weak Areas</p>
-          <div className={styles.row} style={{ flexWrap: "wrap", gap: "0.35rem" }}>
-            {weakConcepts.map((c) => (
-              <button
-                key={c.conceptNode}
-                className={styles.secondary}
-                style={{ fontSize: "0.72rem", padding: "0.3rem 0.6rem" }}
-                onClick={() => generate(c.conceptNode)}
-              >
-                {c.conceptNode.replace(/_/g, " ")}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {state === "idle" && (
-        <div className={styles.form}>
-          <label className={styles.label} htmlFor="topic">
-            Topic (optional -- leave blank for weak-area focus)
+      <div className={styles.card}>
+        {topics.map((topic) => (
+          <label key={topic.id} className={styles.checkRow}>
+            <input
+              type="checkbox"
+              checked={selectedTopics.includes(topic.id)}
+              onChange={() => toggleTopic(topic.id)}
+            />
+            <span>
+              <strong>{topic.name}</strong>
+              <br />
+              <span className={styles.muted}>{topic.note}</span>
+            </span>
           </label>
-          <input
-            id="topic"
-            className={styles.textarea}
-            style={{ minHeight: "auto", padding: "0.45rem 0.65rem" }}
-            placeholder="e.g. integration by parts"
-            value={topic}
-            onChange={(e) => setTopic(e.target.value)}
-          />
-          <button className={styles.primary} onClick={() => generate()}>
-            Generate question
-          </button>
-        </div>
-      )}
+        ))}
 
-      {state === "loading" && (
-        <div className={styles.center} style={{ minHeight: "20vh" }}>
-          <div className={styles.spinner} aria-hidden />
-          <p className={styles.muted}>Generating question...</p>
-        </div>
-      )}
+        <button
+          className={styles.primaryButton}
+          type="button"
+          onClick={() => setStarted(true)}
+        >
+          Start Quiz
+        </button>
+      </div>
 
-      {error && <p className={styles.error}>{error}</p>}
-
-      {(state === "question" || state === "answered") && quiz && (
+      {started && (
         <div className={styles.card}>
-          <p className={styles.cardTitle}>
-            {quiz.difficulty || "Question"} {quiz.conceptNode ? `— ${quiz.conceptNode.replace(/_/g, " ")}` : ""}
-          </p>
-          <div className={styles.cardBody}><MathRenderer text={quiz.question} /></div>
-          <div className={styles.options} style={{ marginTop: "0.5rem" }}>
-            {quiz.options.map((opt, i) => {
-              let optStyle = {};
-              if (state === "answered") {
-                if (i === quiz.answer) optStyle = { color: "#3ee0d0", fontWeight: 600 };
-                else if (i === selected && i !== quiz.answer) optStyle = { color: "#f07178" };
-              }
-              return (
-                <button
-                  key={i}
-                  className={styles.secondary}
-                  style={{ justifyContent: "flex-start", textAlign: "left", ...optStyle }}
-                  onClick={() => state === "question" && submitAnswer(i)}
-                  disabled={state === "answered"}
-                >
-                  {String.fromCharCode(65 + i)}. <MathRenderer text={opt} />
-                </button>
-              );
-            })}
+          <div className={styles.rowBetween}>
+            <p className={styles.cardTitle}>Question 1</p>
+            <div className={styles.row}>
+              <button className={styles.secondaryButton} type="button">
+                Easier
+              </button>
+              <button className={styles.secondaryButton} type="button">
+                Harder
+              </button>
+            </div>
           </div>
+
+          <p className={styles.text}>
+            Evaluate ∫ x e^x dx and explain why your choice of u and dv makes sense.
+          </p>
+
+          <textarea
+            className={styles.textarea}
+            rows={5}
+            placeholder="Type your answer..."
+            value={answer}
+            onChange={(e) => setAnswer(e.target.value)}
+          />
+
+          <button
+            className={styles.primaryButton}
+            type="button"
+            onClick={() => setSubmitted(true)}
+          >
+            Submit Answer
+          </button>
         </div>
       )}
 
-      {state === "answered" && result && (
-        <>
-          <div className={styles.card} style={{ borderColor: result.isCorrect ? "#3ee0d0" : "#f07178" }}>
-            <p className={styles.cardTitle}>{result.isCorrect ? "Correct!" : "Incorrect"}</p>
-            <div className={styles.cardBody}><MathRenderer text={result.explanation} /></div>
-          </div>
-          <button className={styles.primary} onClick={() => { setState("idle"); }}>
-            Next question
-          </button>
-        </>
-      )}
+      {submitted && (
+        <div className={styles.card}>
+          <p className={styles.cardTitle}>Answer Reveal</p>
+          <p className={styles.text}>
+            Let u = x and dv = e^x dx. Then du = dx and v = e^x.
+          </p>
+          <p className={styles.text}>
+            So ∫ x e^x dx = x e^x − ∫ e^x dx = x e^x − e^x + C.
+          </p>
 
-      {score.total > 0 && (
-        <div className={styles.results}>
-          <span className={styles.score}>
-            Score: <strong>{score.correct} / {score.total}</strong>
-          </span>
+          <p className={styles.cardTitle}>Your Performance</p>
+          <p className={styles.text}>You answered 1 / 3 correctly.</p>
+
+          <p className={styles.cardTitle}>Past Performance</p>
+          <p className={styles.text}>Last time: 0 / 3</p>
+
+          <div className={styles.calloutBox}>
+            <p className={styles.calloutTitle}>Progress</p>
+            <p className={styles.text}>You did better this round. Good job.</p>
+          </div>
         </div>
       )}
     </div>
