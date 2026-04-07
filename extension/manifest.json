@@ -7,22 +7,30 @@
     "default_title": "Open Study Flow"
   },
   "side_panel": {
-    "default_path": "sidepanel.html"
+    "default_path": "dist/sidepanel.html"
   },
   "background": {
-    "service_worker": "background.js",
+    "service_worker": "dist/background.js",
     "type": "module"
   },
-  "permissions": ["storage", "sidePanel", "activeTab", "scripting", "identity"],
-  "host_permissions": ["http://localhost:3000/*", "http://127.0.0.1:3000/*"],
+  "permissions": [
+    "storage",
+    "sidePanel",
+    "activeTab",
+    "scripting",
+    "identity"
+  ],
+  "host_permissions": [
+    "http://localhost:3000/*",
+    "http://127.0.0.1:3000/*"
+  ],
   "content_scripts": [
     {
       "matches": [
-        "*://*.brightspace.com/*",
-        "*://brightspace.*.edu/*",
+        "*://brightspace.nyu.edu/*",
         "*://*.gradescope.com/*"
       ],
-      "js": ["content.js"],
+      "js": ["dist/content.js"],
       "run_at": "document_idle"
     }
   ]
