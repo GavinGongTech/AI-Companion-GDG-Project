@@ -8,13 +8,13 @@
     "server"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace=web",
-    "dev:web": "npm run dev --workspace=web",
-    "dev:extension": "npm run dev --workspace=extension",
-    "dev:server": "npm run dev --workspace=server",
-    "dev:all": "concurrently -n web,ext,srv -c blue,green,magenta \"npm run dev:web\" \"npm run dev:extension\" \"npm run dev:server\"",
-    "build": "npm run build --workspaces --if-present",
-    "lint": "npm run lint --workspaces --if-present"
+    "dev": "bun run --cwd web dev",
+    "dev:web": "bun run --cwd web dev",
+    "dev:extension": "bun run --cwd extension dev",
+    "dev:server": "bun run --cwd server dev",
+    "dev:all": "concurrently -n web,ext,srv -c blue,green,magenta \"bun run --cwd web dev\" \"bun run --cwd extension dev\" \"bun run --cwd server dev\"",
+    "build": "bun run --cwd web build && bun run --cwd extension build",
+    "lint": "bun run --cwd web lint && bun run --cwd extension lint && bun run --cwd server lint"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"
