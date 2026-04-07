@@ -1,5 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import styles from "./AuthPages.module.css";
+import { doSignInWithEmailAndPassword, doSignInWithGoogle} from "../../firebase/auth";
+import { useAuth } from "../contexts/authContexts";
 
 export function Login() {
   const navigate = useNavigate();
