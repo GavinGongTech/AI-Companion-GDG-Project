@@ -7,6 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export default defineConfig({
+  base: "./",
   plugins: [react()],
   build: {
     outDir: "dist",
@@ -20,7 +21,6 @@ export default defineConfig({
         content: resolve(__dirname, "src/content.js"),
       },
       output: {
-        // Stable entry names so manifest.json references resolve correctly
         entryFileNames: "[name].js",
         chunkFileNames: "chunks/[name]-[hash].js",
         assetFileNames: "assets/[name]-[hash][extname]",

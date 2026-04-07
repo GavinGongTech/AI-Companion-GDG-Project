@@ -2,29 +2,31 @@ import { NavLink } from "react-router-dom";
 import styles from "./Shell.module.css";
 
 export function Shell({ children }) {
-  const navClass = ({ isActive }) =>
-    isActive ? styles.pillActive : styles.pill;
+  const tabClass = ({ isActive }) =>
+    isActive ? `${styles.tab} ${styles.active}` : styles.tab;
 
   return (
     <div className={styles.shell}>
-      <header className={styles.top}>
-        <span>Study Flow</span>
-        <nav className={styles.nav}>
-          <NavLink to="/hub" className={navClass}>
-            Hub
-          </NavLink>
-          <NavLink to="/ask" className={navClass}>
-            Ask
-          </NavLink>
-          <NavLink to="/quiz" className={navClass}>
-            Quiz
-          </NavLink>
-          <NavLink to="/graph" className={navClass}>
-            Graph
-          </NavLink>
-        </nav>
+      <header className={styles.header}>
+        <div>
+          <p className={styles.kicker}>AI Companion</p>
+          <h1 className={styles.title}>Study Flow</h1>
+        </div>
       </header>
-      <main className={styles.body}>{children}</main>
+
+      <nav className={styles.nav}>
+        <NavLink to="/home" className={tabClass}>
+          Home
+        </NavLink>
+        <NavLink to="/graph" className={tabClass}>
+          My Graph
+        </NavLink>
+        <NavLink to="/course" className={tabClass}>
+          My Course
+        </NavLink>
+      </nav>
+
+      <main className={styles.main}>{children}</main>
     </div>
   );
 }
