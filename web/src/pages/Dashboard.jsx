@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import cytoscape from "cytoscape";
 import { useAuth } from "../lib/auth";
 import { apiFetch } from "../lib/api";
 import styles from "./Dashboard.module.css";
@@ -30,49 +29,55 @@ export default function Dashboard() {
     return () => controller.abort();
   }, []);
 
-  // Initialize cytoscape when nodes change
+  // Lazy-load and initialize cytoscape only when there are nodes to render
   useEffect(() => {
     if (!graphRef.current || nodes.length === 0) return;
-    if (cyRef.current) cyRef.current.destroy();
+    let cancelled = false;
 
-    const elements = nodes.map((n) => ({
-      data: {
-        id: n.conceptNode,
-        label: n.conceptNode.replace(/_/g, " "),
-        accuracy: n.accuracyRate || 0,
-        size: Math.max(20, Math.min(60, (n.interactionCount || 1) * 5)),
-      },
-    }));
+    import("cytoscape").then(({ default: cytoscape }) => {
+      if (cancelled || !graphRef.current) return;
+      if (cyRef.current) cyRef.current.destroy();
 
-    cyRef.current = cytoscape({
-      container: graphRef.current,
-      elements,
-      style: [
-        {
-          selector: "node",
-          style: {
-            label: "data(label)",
-            "background-color": (ele) => {
-              const acc = ele.data("accuracy");
-              if (acc < 0.4) return "#f07178";
-              if (acc < 0.7) return "#ffcb6b";
-              return "#3ee0d0";
-            },
-            width: "data(size)",
-            height: "data(size)",
-            "font-size": "10px",
-            color: "#f2f5f9",
-            "text-valign": "bottom",
-            "text-margin-y": 5,
-          },
+      const elements = nodes.map((n) => ({
+        data: {
+          id: n.conceptNode,
+          label: n.conceptNode.replace(/_/g, " "),
+          accuracy: n.accuracyRate || 0,
+          size: Math.max(20, Math.min(60, (n.interactionCount || 1) * 5)),
         },
-      ],
-      layout: { name: "cose", animate: false, padding: 30 },
-      userZoomingEnabled: true,
-      userPanningEnabled: true,
+      }));
+
+      cyRef.current = cytoscape({
+        container: graphRef.current,
+        elements,
+        style: [
+          {
+            selector: "node",
+            style: {
+              label: "data(label)",
+              "background-color": (ele) => {
+                const acc = ele.data("accuracy");
+                if (acc < 0.4) return "#f07178";
+                if (acc < 0.7) return "#ffcb6b";
+                return "#3ee0d0";
+              },
+              width: "data(size)",
+              height: "data(size)",
+              "font-size": "10px",
+              color: "#f2f5f9",
+              "text-valign": "bottom",
+              "text-margin-y": 5,
+            },
+          },
+        ],
+        layout: { name: "cose", animate: false, padding: 30 },
+        userZoomingEnabled: true,
+        userPanningEnabled: true,
+      });
     });
 
     return () => {
+      cancelled = true;
       if (cyRef.current) cyRef.current.destroy();
     };
   }, [nodes]);

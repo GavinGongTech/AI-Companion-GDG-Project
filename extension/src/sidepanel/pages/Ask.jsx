@@ -6,7 +6,7 @@ import styles from "./Pages.module.css";
 
 export function Ask() {
   const [question, setQuestion] = useState("");
-  const [courseId, setCourseId] = useState("");
+  const [courseId] = useState("");
   const [response, setResponse] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
