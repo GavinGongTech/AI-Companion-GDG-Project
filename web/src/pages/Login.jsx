@@ -7,8 +7,6 @@ import {
 } from "firebase/auth";
 import { auth } from "../lib/firebase";
 import styles from "./AuthPages.module.css";
-import { doSignInWithEmailAndPassword, doSignInWithGoogle} from "../../firebase/auth";
-import { useAuth } from "../contexts/authContexts";
 
 const googleProvider = new GoogleAuthProvider();
 
