@@ -91,7 +91,7 @@ export function Home() {
           </li>
           <li>
             <span className={styles.metaLabel}>AI</span>
-            Gemini 2.0 Flash · text-embedding-004 · Cloud Vision OCR
+            Gemini 2.0 Flash · Text Embedding 004 · Cloud Vision OCR
           </li>
         </ul>
       </section>

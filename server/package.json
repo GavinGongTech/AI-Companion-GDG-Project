@@ -5,13 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/index.js",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "test": "vitest run",
     "start": "node src/index.js"
   },
   "dependencies": {
     "@google-cloud/vision": "^5.3.5",
-    "@google/generative-ai": "^0.24.1",
+    "@google/genai": "^1.48.0",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",

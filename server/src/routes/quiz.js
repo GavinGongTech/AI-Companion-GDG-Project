@@ -6,6 +6,7 @@ import { saveInteraction } from "../services/firestore.js";
 import { requireFirebaseAuth } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { quizGenerateSchema, quizAnswerSchema } from "../schemas.js";
+import { cacheInvalidate } from "../services/cache.js";
 
 export const quizRouter = Router();
 
@@ -68,7 +69,9 @@ quizRouter.post("/answer", requireFirebaseAuth, validate(quizAnswerSchema), asyn
 
     const isCorrect = selectedAnswer === correctAnswer;
 
-    // Record the interaction and update SMG
+    // Record the interaction and update SMG — invalidate cached graph
+    cacheInvalidate(`graph:${uid}`);
+    cacheInvalidate(`drill:${uid}`);
     await recordInteraction(uid, conceptNode, {
       errorType: isCorrect ? "none" : "knowledge_gap",
       confidence: 1,

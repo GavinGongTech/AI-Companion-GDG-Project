@@ -1,6 +1,6 @@
 chrome.runtime.onInstalled.addListener(() => {
   void chrome.sidePanel.setOptions({
-    path: "dist/sidepanel.html",
+    path: "sidepanel.html",
     enabled: true,
   });
 });
@@ -14,7 +14,72 @@ chrome.action.onClicked.addListener((tab) => {
 // Listen for messages from content script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "INGEST_PAGE") {
-    sendResponse({ ok: true });
+    // Store extracted content for the side panel to pick up
+    chrome.storage.session.set({
+      lastIngestedContent: message.payload,
+    });
+
+    // Forward to backend API for ingestion
+    ingestToBackend(message.payload)
+      .then(() => sendResponse({ ok: true }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }));
+
+    return true; // keep channel open for async sendResponse
   }
-  return true;
+
+  if (message.type === "OPEN_ASK") {
+    // Store the selected text so Ask page can pre-fill it
+    chrome.storage.session.set({
+      prefillAsk: message.payload?.selectedText || "",
+    });
+    // Open the side panel
+    if (sender.tab?.windowId !== undefined) {
+      void chrome.sidePanel.open({ windowId: sender.tab.windowId });
+    }
+    sendResponse({ ok: true });
+    return false;
+  }
+
+  if (message.type === "OPEN_QUIZ") {
+    if (sender.tab?.windowId !== undefined) {
+      void chrome.sidePanel.open({ windowId: sender.tab.windowId });
+    }
+    chrome.storage.session.set({ navigateTo: "quiz" });
+    sendResponse({ ok: true });
+    return false;
+  }
+
+  return false;
 });
+
+async function ingestToBackend(payload) {
+  // Read API URL and auth token from storage
+  const data = await chrome.storage.local.get(["apiUrl"]);
+  const apiUrl = data.apiUrl || "http://localhost:3000";
+
+  // Try to get the Firebase ID token stored by the side panel auth flow
+  const session = await chrome.storage.session.get(["firebaseIdToken"]);
+  const token = session.firebaseIdToken;
+  if (!token) {
+    // User not signed in yet — skip silent ingestion
+    return;
+  }
+
+  const res = await fetch(`${apiUrl}/api/v1/ingest/text`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      courseId: payload.courseName || "general",
+      rawContent: payload.rawContent,
+      sourcePlatform: payload.sourcePlatform,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || res.statusText);
+  }
+}
