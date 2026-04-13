@@ -12,6 +12,8 @@ import { useAuth } from "../contexts/authContexts";
 
 const googleProvider = new GoogleAuthProvider();
 
+const googleProvider = new GoogleAuthProvider();
+
 export function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");

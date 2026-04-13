@@ -1,6 +1,28 @@
+import { useState, useEffect } from "react";
+import { apiFetch } from "../lib/api";
 import styles from "./Pages.module.css";
 
 export function Course() {
+  const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    apiFetch("/api/v1/courses")
+      .then((data) => setCourses(data.courses || []))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className={styles.center}>
+        <div className={styles.spinner} aria-hidden />
+        <p className={styles.muted}>Loading courses...</p>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.stack}>
       <div className={styles.section}>
@@ -11,31 +33,70 @@ export function Course() {
         </p>
       </div>
 
-      <div className={styles.card}>
-        <p className={styles.cardTitle}>Ingested Documents</p>
-        <ul className={styles.simpleList}>
-          <li>Lecture 8 Notes.pdf</li>
-          <li>Homework 5 Solutions.html</li>
-          <li>Midterm Review.pdf</li>
-        </ul>
-      </div>
+      {error && <p className={styles.error}>{error}</p>}
 
-      <div className={styles.card}>
-        <p className={styles.cardTitle}>Upcoming Deadlines</p>
-        <ul className={styles.simpleList}>
-          <li>Homework 6 — Tomorrow</li>
-          <li>Quiz 3 — In 3 days</li>
-        </ul>
-      </div>
-
-      <div className={styles.card}>
-        <p className={styles.cardTitle}>Urgent Concepts</p>
-        <div className={styles.topicList}>
-          <div className={styles.topicItem}>chain rule</div>
-          <div className={styles.topicItem}>integration by parts</div>
-          <div className={styles.topicItem}>convergence tests</div>
+      {courses.length > 0 ? (
+        courses.map((course) => (
+          <CourseCard key={course.courseId} course={course} />
+        ))
+      ) : (
+        <div className={styles.card}>
+          <p className={styles.muted}>
+            No courses yet. Ingest course materials via the web dashboard to get
+            started.
+          </p>
         </div>
+      )}
+    </div>
+  );
+}
+
+function CourseCard({ course }) {
+  const [details, setDetails] = useState(null);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!expanded) return;
+    if (details) return;
+    apiFetch(`/api/v1/courses/${course.courseId}`)
+      .then(setDetails)
+      .catch(() => {});
+  }, [expanded, course.courseId, details]);
+
+  return (
+    <div className={styles.card}>
+      <div className={styles.rowBetween}>
+        <p className={styles.cardTitle}>
+          {course.courseName || course.courseId}
+        </p>
+        <button
+          type="button"
+          className={styles.secondaryButton}
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? "Hide" : "Details"}
+        </button>
       </div>
+
+      {expanded && details && (
+        <>
+          {details.ingestedDocs?.length > 0 && (
+            <>
+              <p className={styles.cardTitle}>Ingested Documents</p>
+              <ul className={styles.simpleList}>
+                {details.ingestedDocs.map((doc) => (
+                  <li key={doc.fileId}>
+                    {doc.filename || doc.fileId}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          <p className={styles.muted}>
+            {details.chunkCount ?? 0} chunks indexed
+          </p>
+        </>
+      )}
     </div>
   );
 }
