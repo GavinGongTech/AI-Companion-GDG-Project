@@ -1,112 +1,226 @@
 import { useState } from "react";
+import { apiFetch } from "../lib/api";
+import { MathRenderer } from "../components/MathRenderer";
+import "katex/dist/katex.min.css";
 import styles from "./Pages.module.css";
 
-const topics = [
-  { id: 1, name: "Lecture 1", note: "you did this 0x times" },
-  { id: 2, name: "Lecture 2", note: "you did this 1x time" },
-  { id: 3, name: "Lecture 3", note: "weak area" },
-];
-
 export function Quiz() {
-  const [selectedTopics, setSelectedTopics] = useState([1]);
-  const [started, setStarted] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [answer, setAnswer] = useState("");
+  const [topic, setTopic] = useState("");
+  const [questions, setQuestions] = useState([]);
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [selected, setSelected] = useState(null);
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [score, setScore] = useState({ correct: 0, total: 0 });
 
-  function toggleTopic(id) {
-    setSelectedTopics((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
+  async function startQuiz() {
+    setLoading(true);
+    setError(null);
+    setQuestions([]);
+    setCurrentIdx(0);
+    setSelected(null);
+    setResult(null);
+    setScore({ correct: 0, total: 0 });
+    try {
+      const data = await apiFetch("/api/v1/quiz", {
+        method: "POST",
+        body: JSON.stringify({
+          topic: topic.trim() || undefined,
+          count: 3,
+        }),
+      });
+      // Server returns { questions: [...] } for count > 1
+      const qs = data.questions || [data];
+      setQuestions(qs);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   }
+
+  // TODO(human): Implement the submitAnswer function
+  // This should call POST /api/v1/quiz/answer with the selected answer,
+  // update the score, show the explanation, and advance to the next question.
+  async function submitAnswer() {
+    if (selected === null) return;
+    const q = questions[currentIdx];
+    const isCorrect = selected === q.answer;
+
+    setResult({ isCorrect, explanation: q.explanation });
+    setScore((prev) => ({
+      correct: prev.correct + (isCorrect ? 1 : 0),
+      total: prev.total + 1,
+    }));
+
+    // Record answer in backend for SMG tracking
+    try {
+      await apiFetch("/api/v1/quiz/answer", {
+        method: "POST",
+        body: JSON.stringify({
+          conceptNode: q.conceptNode,
+          selectedAnswer: selected,
+          correctAnswer: q.answer,
+        }),
+      });
+    } catch {
+      // Non-blocking — don't interrupt the quiz flow for tracking failures
+    }
+  }
+
+  function nextQuestion() {
+    setSelected(null);
+    setResult(null);
+    setCurrentIdx((i) => i + 1);
+  }
+
+  const q = questions[currentIdx];
+  const quizDone = questions.length > 0 && currentIdx >= questions.length;
 
   return (
     <div className={styles.stack}>
       <div className={styles.section}>
         <p className={styles.eyebrow}>Quiz mode</p>
-        <h2 className={styles.h1}>Pick the topics you want to be quizzed on</h2>
+        <h2 className={styles.h1}>Test your understanding</h2>
       </div>
 
-      <div className={styles.card}>
-        {topics.map((topic) => (
-          <label key={topic.id} className={styles.checkRow}>
-            <input
-              type="checkbox"
-              checked={selectedTopics.includes(topic.id)}
-              onChange={() => toggleTopic(topic.id)}
-            />
-            <span>
-              <strong>{topic.name}</strong>
-              <br />
-              <span className={styles.muted}>{topic.note}</span>
-            </span>
-          </label>
-        ))}
-
-        <button
-          className={styles.primaryButton}
-          type="button"
-          onClick={() => setStarted(true)}
-        >
-          Start Quiz
-        </button>
-      </div>
-
-      {started && (
+      {/* Topic input + start */}
+      {questions.length === 0 && !loading && (
         <div className={styles.card}>
-          <div className={styles.rowBetween}>
-            <p className={styles.cardTitle}>Question 1</p>
-            <div className={styles.row}>
-              <button className={styles.secondaryButton} type="button">
-                Easier
-              </button>
-              <button className={styles.secondaryButton} type="button">
-                Harder
-              </button>
-            </div>
-          </div>
-
-          <p className={styles.text}>
-            Evaluate ∫ x e^x dx and explain why your choice of u and dv makes sense.
-          </p>
-
-          <textarea
+          <label className={styles.cardTitle}>
+            Topic (optional — leave blank to target weak areas)
+          </label>
+          <input
             className={styles.textarea}
-            rows={5}
-            placeholder="Type your answer..."
-            value={answer}
-            onChange={(e) => setAnswer(e.target.value)}
+            style={{ minHeight: "auto" }}
+            placeholder="e.g. integration by parts"
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
           />
-
           <button
             className={styles.primaryButton}
             type="button"
-            onClick={() => setSubmitted(true)}
+            onClick={startQuiz}
           >
-            Submit Answer
+            Start Quiz
           </button>
         </div>
       )}
 
-      {submitted && (
+      {loading && (
+        <div className={styles.center} style={{ minHeight: "30vh" }}>
+          <div className={styles.spinner} aria-hidden />
+          <p className={styles.muted}>Generating questions...</p>
+        </div>
+      )}
+
+      {error && <p className={styles.error}>{error}</p>}
+
+      {/* Active question */}
+      {q && !quizDone && (
         <div className={styles.card}>
-          <p className={styles.cardTitle}>Answer Reveal</p>
-          <p className={styles.text}>
-            Let u = x and dv = e^x dx. Then du = dx and v = e^x.
-          </p>
-          <p className={styles.text}>
-            So ∫ x e^x dx = x e^x − ∫ e^x dx = x e^x − e^x + C.
-          </p>
-
-          <p className={styles.cardTitle}>Your Performance</p>
-          <p className={styles.text}>You answered 1 / 3 correctly.</p>
-
-          <p className={styles.cardTitle}>Past Performance</p>
-          <p className={styles.text}>Last time: 0 / 3</p>
-
-          <div className={styles.calloutBox}>
-            <p className={styles.calloutTitle}>Progress</p>
-            <p className={styles.text}>You did better this round. Good job.</p>
+          <div className={styles.rowBetween}>
+            <p className={styles.cardTitle}>
+              Question {currentIdx + 1} of {questions.length}
+            </p>
+            <span className={styles.muted}>{q.difficulty}</span>
           </div>
+
+          <div className={styles.text}>
+            <MathRenderer text={q.question} />
+          </div>
+
+          <div className={styles.topicList}>
+            {q.options.map((opt, i) => (
+              <button
+                key={i}
+                type="button"
+                className={styles.topicItem}
+                style={{
+                  cursor: result ? "default" : "pointer",
+                  border:
+                    selected === i
+                      ? "2px solid #111827"
+                      : "2px solid transparent",
+                  background:
+                    result && i === q.answer
+                      ? "#d1fae5"
+                      : result && i === selected && !result.isCorrect
+                        ? "#fee2e2"
+                        : undefined,
+                }}
+                onClick={() => !result && setSelected(i)}
+                disabled={!!result}
+              >
+                <MathRenderer text={opt} />
+              </button>
+            ))}
+          </div>
+
+          {!result ? (
+            <button
+              className={styles.primaryButton}
+              type="button"
+              onClick={submitAnswer}
+              disabled={selected === null}
+            >
+              Submit Answer
+            </button>
+          ) : (
+            <>
+              <div className={styles.calloutBox}>
+                <p className={styles.calloutTitle}>
+                  {result.isCorrect ? "Correct!" : "Incorrect"}
+                </p>
+                <div className={styles.text}>
+                  <MathRenderer text={result.explanation} />
+                </div>
+              </div>
+              {currentIdx < questions.length - 1 ? (
+                <button
+                  className={styles.primaryButton}
+                  type="button"
+                  onClick={nextQuestion}
+                >
+                  Next Question
+                </button>
+              ) : (
+                <button
+                  className={styles.primaryButton}
+                  type="button"
+                  onClick={() => {
+                    setQuestions([]);
+                    setCurrentIdx(0);
+                  }}
+                >
+                  See Results
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Results */}
+      {quizDone && (
+        <div className={styles.card}>
+          <p className={styles.cardTitle}>Quiz Complete</p>
+          <p className={styles.text}>
+            You got {score.correct} out of {score.total} correct (
+            {Math.round((score.correct / score.total) * 100)}%).
+          </p>
+          <button
+            className={styles.primaryButton}
+            type="button"
+            onClick={() => {
+              setQuestions([]);
+              setCurrentIdx(0);
+              setScore({ correct: 0, total: 0 });
+            }}
+          >
+            Try Again
+          </button>
         </div>
       )}
     </div>

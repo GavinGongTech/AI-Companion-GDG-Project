@@ -7,7 +7,9 @@ import { extractTextFromBase64 } from "../services/ocr.js";
 import { requireFirebaseAuth } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { analyzeSchema } from "../schemas.js";
+import { cacheInvalidate } from "../services/cache.js";
 
+//this is API endpoint that runs analyze flow
 export const analyzeRouter = Router();
 
 analyzeRouter.post("/", requireFirebaseAuth, validate(analyzeSchema), async (req, res, next) => {
@@ -49,9 +51,17 @@ analyzeRouter.post("/", requireFirebaseAuth, validate(analyzeSchema), async (req
       eventType: "explain",
       response: explanation,
       classifierTag,
+      requestMeta: {
+        path: req.originalUrl,
+        method: req.method,
+        ip: req.ip,
+        userAgent: req.headers["user-agent"] || null,
+      },
     });
 
-    // 6. Update SMG via SM-2 scheduling
+    // 6. Update SMG via SM-2 scheduling — invalidate cached graph
+    cacheInvalidate(`graph:${uid}`);
+    cacheInvalidate(`drill:${uid}`);
     await recordInteraction(uid, classifierTag.conceptNode, {
       errorType: classifierTag.errorType,
       confidence: classifierTag.confidence,

@@ -19,6 +19,12 @@ export default defineConfig({
           if (id.includes("node_modules/react-router")) {
             return "router";
           }
+          if (id.includes("node_modules/cytoscape")) {
+            return "cytoscape";
+          }
+          if (id.includes("node_modules/katex")) {
+            return "katex";
+          }
         },
       },
     },

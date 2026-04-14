@@ -20,7 +20,7 @@ export function Download() {
             Download extension package
           </a>
           <span className={styles.hint}>
-            Dev: run <code className={styles.code}>npm run build --workspace=extension</code>,
+            Dev: run <code className={styles.code}>bun run --cwd extension build</code>,
             then Chrome → Extensions → Developer mode → Load unpacked → select{" "}
             <code className={styles.code}>extension/dist</code>.
           </span>

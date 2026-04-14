@@ -1,14 +1,37 @@
-import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import { Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { signOut } from "firebase/auth";
 import { auth } from "../lib/firebase";
 import { useAuth } from "../lib/auth";
+import { apiFetch } from "../lib/api";
 import styles from "./Layout.module.css";
+import { useEffect } from "react";
 
 export function Layout() {
   const user = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!user) return;
+    apiFetch("/api/v1/events/track", {
+      method: "POST",
+      body: JSON.stringify({
+        eventType: "page_view",
+        content: location.pathname,
+        meta: { pathname: location.pathname, search: location.search || "" },
+      }),
+    }).catch(() => {});
+  }, [user, location.pathname, location.search]);
 
   async function handleSignOut() {
+    await apiFetch("/api/v1/events/track", {
+      method: "POST",
+      body: JSON.stringify({
+        eventType: "auth_logout",
+        content: "logout",
+      }),
+    }).catch(() => {});
+
     await signOut(auth);
     navigate("/");
   }
