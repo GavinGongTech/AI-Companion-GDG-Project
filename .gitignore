@@ -5,5 +5,7 @@ dist
 .env
 .env.local
 *.key.json
+*adminsdk*.json
+*serviceaccount*.json
 uploads/
 package-lock.json
