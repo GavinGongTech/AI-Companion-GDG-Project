@@ -6,6 +6,7 @@ import { validate } from "../middleware/validate.js";
 import { ingestTextSchema } from "../schemas.js";
 import { ingestFile, ingestText } from "../services/ingestion.js";
 import { ensureUserDoc } from "../services/firestore.js";
+import { cacheInvalidate } from "../services/cache.js";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
 const upload = multer({ dest: "uploads/", limits: { fileSize: MAX_FILE_SIZE } });
@@ -36,6 +37,8 @@ ingestRouter.post(
       await ensureUserDoc(uid, req.user.email, req.user.name);
 
       await ingestFile(uid, courseId, req.file.path, req.file.originalname, sourcePlatform);
+      cacheInvalidate(`courses:${uid}`);
+      cacheInvalidate(`course:${uid}:${courseId}`);
 
       res.json({ ok: true, filename: req.file.originalname, courseId });
     } catch (err) {
@@ -64,6 +67,8 @@ ingestRouter.post("/text", requireFirebaseAuth, validate(ingestTextSchema), asyn
       filename: filename || "content-script-capture",
       source: sourcePlatform,
     });
+    cacheInvalidate(`courses:${uid}`);
+    cacheInvalidate(`course:${uid}:${courseId}`);
 
     res.json({ ok: true, courseId, ingestedAt: new Date().toISOString() });
   } catch (err) {

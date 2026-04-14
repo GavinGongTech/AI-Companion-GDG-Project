@@ -1,8 +1,8 @@
 import rateLimit from "express-rate-limit";
 
 /**
- * Rate limiter: 30 requests per minute per authenticated user (by uid).
- * Falls back to IP if no user is attached.
+ * Rate limiter: 30 requests per minute per IP.
+ * Applied before auth middleware, so uid is not yet available.
  */
 export const apiLimiter = rateLimit({
   windowMs: 60 * 1000,

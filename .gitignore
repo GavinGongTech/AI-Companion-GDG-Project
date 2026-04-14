@@ -6,3 +6,4 @@ dist
 .env.local
 *.key.json
 uploads/
+package-lock.json

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { getGraph, getDrillQueue } from "../services/misconception.js";
 import { requireFirebaseAuth } from "../middleware/auth.js";
 import { db } from "../db/firebase.js";
+import { cacheGet, cacheSet } from "../services/cache.js";
 
 export const graphRouter = Router();
 
@@ -11,13 +12,19 @@ export const graphRouter = Router();
 graphRouter.get("/", requireFirebaseAuth, async (req, res, next) => {
   try {
     const uid = req.user.uid;
+    const cacheKey = `graph:${uid}`;
+    const cached = cacheGet(cacheKey);
+    if (cached) return res.json(cached);
+
     const nodes = await getGraph(uid);
 
     if (nodes.length === 0) {
       return res.status(404).json({ error: "No SMG data yet — start studying!" });
     }
 
-    res.json({ nodes });
+    const body = { nodes };
+    cacheSet(cacheKey, body, 60_000); // 1 min — graph changes after interactions
+    res.json(body);
   } catch (err) {
     next(err);
   }
@@ -29,8 +36,14 @@ graphRouter.get("/", requireFirebaseAuth, async (req, res, next) => {
 graphRouter.get("/drill", requireFirebaseAuth, async (req, res, next) => {
   try {
     const uid = req.user.uid;
+    const cacheKey = `drill:${uid}`;
+    const cached = cacheGet(cacheKey);
+    if (cached) return res.json(cached);
+
     const queue = await getDrillQueue(uid);
-    res.json({ queue });
+    const body = { queue };
+    cacheSet(cacheKey, body, 60_000);
+    res.json(body);
   } catch (err) {
     next(err);
   }

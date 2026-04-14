@@ -1,13 +1,43 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { apiFetch } from "../lib/api";
+import { MathRenderer } from "../components/MathRenderer";
+import "katex/dist/katex.min.css";
 import styles from "./Pages.module.css";
 
 export function Ask() {
-  const [input, setInput] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const [question, setQuestion] = useState("");
+  const [courseId] = useState("");
+  const [response, setResponse] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  function handleSubmit(e) {
+  // Pre-fill from content script's "Explain this" button
+  useEffect(() => {
+    chrome.storage.session.get(["prefillAsk"], (data) => {
+      if (data.prefillAsk) {
+        setQuestion(data.prefillAsk);
+        chrome.storage.session.remove("prefillAsk");
+      }
+    });
+  }, []);
+
+  async function handleSubmit(e) {
     e.preventDefault();
-    setSubmitted(true);
+    if (!question.trim()) return;
+    setLoading(true);
+    setError(null);
+    setResponse(null);
+    try {
+      const data = await apiFetch("/api/v1/analyze", {
+        method: "POST",
+        body: JSON.stringify({ content: question.trim(), courseId: courseId || undefined }),
+      });
+      setResponse(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -34,51 +64,62 @@ export function Ask() {
             className={styles.textarea}
             rows={6}
             placeholder="Type your question here..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
           />
 
           <div className={styles.rowBetween}>
             <button className={styles.iconButton} type="button">
               +
             </button>
-            <button className={styles.iconButton} type="submit">
-              →
+            <button className={styles.iconButton} type="submit" disabled={loading || !question.trim()}>
+              {loading ? "..." : "→"}
             </button>
           </div>
         </form>
       </div>
 
-      {submitted && (
+      {error && <p className={styles.error}>{error}</p>}
+
+      {response && (
         <div className={styles.card}>
           <p className={styles.cardTitle}>Question</p>
-          <p className={styles.text}>
-            {input || "Why does integration by parts work?"}
-          </p>
+          <p className={styles.text}>{question}</p>
 
           <p className={styles.cardTitle}>Step-by-step Solution</p>
-          <ol className={styles.simpleList}>
-            <li>Start from the product rule: (uv)' = u'v + uv'.</li>
-            <li>Rearrange it to isolate uv'.</li>
-            <li>Integrate both sides to get ∫u dv = uv − ∫v du.</li>
-          </ol>
+          <div className={styles.text}><MathRenderer text={response.solution} /></div>
 
-          <p className={styles.cardTitle}>Main Concept</p>
-          <p className={styles.text}>Integration techniques</p>
+          {response.mainConcept && (
+            <>
+              <p className={styles.cardTitle}>Main Concept</p>
+              <p className={styles.text}>{response.mainConcept}</p>
+            </>
+          )}
 
-          <p className={styles.cardTitle}>Key Formula</p>
-          <p className={styles.text}>∫u dv = uv − ∫v du</p>
+          {response.keyFormulas?.length > 0 && (
+            <>
+              <p className={styles.cardTitle}>Key Formulas</p>
+              <ul className={styles.simpleList}>
+                {response.keyFormulas.map((f, i) => (
+                  <li key={i}><MathRenderer text={f} /></li>
+                ))}
+              </ul>
+            </>
+          )}
 
-          <p className={styles.cardTitle}>Relevant Lecture</p>
-          <p className={styles.text}>Lecture 8: Integration by Parts</p>
+          {response.relevantLecture && (
+            <>
+              <p className={styles.cardTitle}>Relevant Lecture</p>
+              <p className={styles.text}>{response.relevantLecture}</p>
+            </>
+          )}
 
-          <div className={styles.calloutBox}>
-            <p className={styles.calloutTitle}>Personalized Callout</p>
-            <p className={styles.text}>
-              You usually struggle more with choosing <strong>u</strong> and{" "}
-              <strong>dv</strong> than with the formula itself.
-            </p>
-          </div>
+          {response.personalizedCallout && (
+            <div className={styles.calloutBox}>
+              <p className={styles.calloutTitle}>Personalized Callout</p>
+              <div className={styles.text}><MathRenderer text={response.personalizedCallout} /></div>
+            </div>
+          )}
         </div>
       )}
     </div>
