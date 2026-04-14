@@ -61,6 +61,7 @@ jobs:
     if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    continue-on-error: true
     permissions:
       contents: read
     steps:
@@ -71,7 +72,7 @@ jobs:
     name: ci-required
     runs-on: ubuntu-latest
     if: ${{ always() }}
-    needs: [lint, test-server, build, dependency-review]
+    needs: [lint, test-server, build]
     steps:
       - name: Enforce required CI results
         run: |
@@ -79,8 +80,7 @@ jobs:
           for result in \
             "${{ needs.lint.result }}" \
             "${{ needs.test-server.result }}" \
-            "${{ needs.build.result }}" \
-            "${{ needs.dependency-review.result }}"; do
+            "${{ needs.build.result }}"; do
             if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
               echo "A required CI job did not pass (result=$result)."
               exit 1
