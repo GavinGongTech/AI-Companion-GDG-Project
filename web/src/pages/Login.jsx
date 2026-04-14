@@ -5,7 +5,7 @@ import {
   signInWithPopup,
   GoogleAuthProvider,
 } from "firebase/auth";
-import { auth } from "../lib/firebase";
+import { auth, hasFirebaseConfig } from "../lib/firebase";
 import styles from "./AuthPages.module.css";
 
 const googleProvider = new GoogleAuthProvider();
@@ -19,6 +19,10 @@ export function Login() {
 
   async function onSubmit(e) {
     e.preventDefault();
+    if (!hasFirebaseConfig || !auth) {
+      setError("Firebase is not configured yet. Add web/.env.local to test sign-in.");
+      return;
+    }
     setError("");
     setLoading(true);
     try {
@@ -32,6 +36,10 @@ export function Login() {
   }
 
   async function onGoogleSignIn() {
+    if (!hasFirebaseConfig || !auth) {
+      setError("Firebase is not configured yet. Add web/.env.local to test Google sign-in.");
+      return;
+    }
     setError("");
     setLoading(true);
     try {

@@ -12,7 +12,6 @@
   border: 1px solid var(--border-subtle);
   background: var(--bg-card);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(12px);
 }
 
 .welcomeCard {
@@ -26,7 +25,7 @@
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--accent-strong);
+  color: var(--text-muted);
 }
 
 .title {
@@ -66,7 +65,7 @@
   padding: 0.65rem 0.85rem;
   border-radius: 10px;
   border: 1px solid var(--border-subtle);
-  background: rgba(6, 8, 12, 0.65);
+  background: #ffffff;
   color: var(--text-primary);
   font-size: 0.95rem;
   outline: none;
@@ -74,12 +73,12 @@
 }
 
 .input::placeholder {
-  color: rgba(139, 151, 168, 0.65);
+  color: #9ca3af;
 }
 
 .input:focus {
   border-color: var(--border-glow);
-  box-shadow: 0 0 0 3px rgba(62, 224, 208, 0.12);
+  box-shadow: 0 0 0 3px rgba(209, 213, 219, 0.5);
 }
 
 .primaryBtn,
@@ -93,15 +92,15 @@
   font-weight: 600;
   font-size: 0.95rem;
   font-family: inherit;
-  color: var(--bg-deep);
+  color: #ffffff;
   background: var(--accent);
   cursor: pointer;
-  transition: filter 0.15s ease, transform 0.15s ease;
+  transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
 .primaryBtn:hover:not(:disabled),
 .primaryBtnWide:hover {
-  filter: brightness(1.05);
+  opacity: 0.92;
   transform: translateY(-1px);
 }
 
@@ -127,7 +126,7 @@
   font-size: 0.95rem;
   font-family: inherit;
   border: 1px solid var(--border-subtle);
-  background: rgba(255, 255, 255, 0.03);
+  background: #f9fafb;
   color: var(--text-primary);
   cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease;
@@ -135,7 +134,7 @@
 
 .secondaryBtnWide:hover {
   border-color: var(--border-glow);
-  background: rgba(62, 224, 208, 0.06);
+  background: var(--bg-muted);
 }
 
 .chromeRow {
@@ -155,7 +154,7 @@
   font-size: 0.78em;
   padding: 0.1em 0.35em;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bg-muted);
 }
 
 .note {
@@ -173,7 +172,7 @@
 }
 
 .inlineLink {
-  color: var(--accent);
+  color: var(--text-primary);
   font-weight: 600;
 }
 
@@ -197,10 +196,7 @@
   font-size: clamp(2.5rem, 8vw, 3.5rem);
   font-weight: 700;
   letter-spacing: -0.04em;
-  background: linear-gradient(120deg, var(--accent) 0%, #e8fbff 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--text-primary);
 }
 
 .checklist {
@@ -226,17 +222,16 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-dim);
+  background: var(--text-primary);
 }
 
 .error {
   margin: 0 0 1rem;
   padding: 0.65rem 0.85rem;
   border-radius: 10px;
-  border: 1px solid rgba(255, 80, 80, 0.35);
-  background: rgba(255, 80, 80, 0.08);
-  color: #ff6b6b;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
   font-size: 0.88rem;
   line-height: 1.45;
 }

@@ -12,9 +12,13 @@ export function Download() {
           panel for structured explanations tied to your courses.
         </p>
         <div className={styles.chromeRow}>
-          <button type="button" className={styles.primaryBtn} disabled>
-            Add to Chrome (store link TBD)
-          </button>
+          <a
+            className={styles.primaryBtn}
+            href="/downloads/study-flow-extension.zip"
+            download="study-flow-extension.zip"
+          >
+            Download extension package
+          </a>
           <span className={styles.hint}>
             Dev: run <code className={styles.code}>npm run build --workspace=extension</code>,
             then Chrome → Extensions → Developer mode → Load unpacked → select{" "}
