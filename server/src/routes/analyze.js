@@ -52,14 +52,14 @@ analyzeRouter.post("/", requireFirebaseAuth, validate(analyzeSchema), async (req
       classifierTag,
     });
 
-    // 6. Update SMG via SM-2 scheduling — invalidate cached graph
-    cacheInvalidate(`graph:${uid}`);
-    cacheInvalidate(`drill:${uid}`);
+    // 6. Update SMG via SM-2 scheduling, then invalidate cached graph/drill views
     await recordInteraction(uid, classifierTag.conceptNode, {
       errorType: classifierTag.errorType,
       confidence: classifierTag.confidence,
       courseId,
     });
+    cacheInvalidate(`graph:${uid}`);
+    cacheInvalidate(`drill:${uid}`);
 
     // 7. Return structured response
     res.json({

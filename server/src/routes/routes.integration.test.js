@@ -65,7 +65,6 @@ vi.mock("../services/rag.js", () => ({
 vi.mock("../services/firestore.js", () => ({
   saveInteraction: vi.fn().mockResolvedValue("event-id-123"),
   ensureUserDoc: vi.fn().mockResolvedValue(undefined),
-  updateSMG: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("../services/misconception.js", async (importOriginal) => {
