@@ -29,7 +29,6 @@ export function AuthProvider({ children }) {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, initializeUser);
         return unsubscribe;
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const value = {

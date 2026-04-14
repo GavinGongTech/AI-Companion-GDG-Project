@@ -93,6 +93,7 @@ vi.mock("../services/ocr.js", () => ({
 
 // ── Import app AFTER mocks are set up ───────────────────────────────────
 const { app } = await import("../app.js");
+const { classifyConcept } = await import("../services/gemini.js");
 
 // ── Tests ───────────────────────────────────────────────────────────────
 
@@ -124,6 +125,26 @@ describe("POST /api/v1/analyze", () => {
       .set("Authorization", "Bearer mock-token")
       .send({});
     expect(res.status).toBe(400);
+  });
+
+  it("normalizes malformed classifier output instead of failing", async () => {
+    classifyConcept.mockResolvedValueOnce({
+      conceptNode: "",
+      errorType: "oops",
+      confidence: "not-a-number",
+    });
+
+    const res = await request(app)
+      .post("/api/v1/analyze")
+      .set("Authorization", "Bearer mock-token")
+      .send({ content: "Explain derivatives basics" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.classifierTag).toEqual({
+      conceptNode: "derivatives",
+      errorType: "knowledge_gap",
+      confidence: 0.5,
+    });
   });
 });
 

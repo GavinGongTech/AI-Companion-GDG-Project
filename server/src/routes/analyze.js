@@ -11,6 +11,36 @@ import { cacheInvalidate } from "../services/cache.js";
 
 export const analyzeRouter = Router();
 
+const ALLOWED_ERROR_TYPES = new Set([
+  "conceptual_misunderstanding",
+  "procedural_error",
+  "knowledge_gap",
+  "reasoning_error",
+  "none",
+]);
+
+function toSnakeCase(input) {
+  return String(input ?? "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function normalizeClassifierTag(classifierTag, fallbackConcept) {
+  const fallback = toSnakeCase(fallbackConcept) || "general_concept";
+  const conceptNode = toSnakeCase(classifierTag?.conceptNode) || fallback;
+  const errorType = ALLOWED_ERROR_TYPES.has(classifierTag?.errorType)
+    ? classifierTag.errorType
+    : "knowledge_gap";
+  const rawConfidence = Number(classifierTag?.confidence);
+  const confidence = Number.isFinite(rawConfidence)
+    ? Math.min(1, Math.max(0, rawConfidence))
+    : 0.5;
+
+  return { conceptNode, errorType, confidence };
+}
+
 analyzeRouter.post("/", requireFirebaseAuth, validate(analyzeSchema), async (req, res, next) => {
   try {
     const uid = req.user.uid;
@@ -41,7 +71,8 @@ analyzeRouter.post("/", requireFirebaseAuth, validate(analyzeSchema), async (req
     const explanation = await explainConcept(text, ragContext, smgHistory);
 
     // 4. Classify the interaction for SMG
-    const classifierTag = await classifyConcept(text, explanation.solution);
+    const rawClassifierTag = await classifyConcept(text, explanation.solution);
+    const classifierTag = normalizeClassifierTag(rawClassifierTag, explanation.mainConcept);
 
     // 5. Save event to Firestore
     const eventId = await saveInteraction(uid, {

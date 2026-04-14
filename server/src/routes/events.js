@@ -4,6 +4,12 @@ import { db } from "../db/firebase.js";
 
 export const eventsRouter = Router();
 
+export function parseIntInRange(value, { defaultValue, min, max }) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  if (!Number.isFinite(parsed)) return defaultValue;
+  return Math.min(max, Math.max(min, parsed));
+}
+
 /**
  * GET /api/v1/events — List recent interaction events for the authenticated user.
  * Query params: limit (default 50, max 100), offset (default 0).
@@ -11,8 +17,8 @@ export const eventsRouter = Router();
 eventsRouter.get("/", requireFirebaseAuth, async (req, res, next) => {
   try {
     const uid = req.user.uid;
-    const limit = Math.min(Number(req.query.limit) || 50, 100);
-    const offset = Number(req.query.offset) || 0;
+    const limit = parseIntInRange(req.query.limit, { defaultValue: 50, min: 1, max: 100 });
+    const offset = parseIntInRange(req.query.offset, { defaultValue: 0, min: 0, max: 1000 });
 
     const eventsRef = db.collection("users").doc(uid).collection("events");
     let query = eventsRef.orderBy("createdAt", "desc");
