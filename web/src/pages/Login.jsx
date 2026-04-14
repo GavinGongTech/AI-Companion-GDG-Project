@@ -5,8 +5,9 @@ import {
   signInWithPopup,
   GoogleAuthProvider,
 } from "firebase/auth";
-import { auth } from "../lib/firebase";
+import { auth, hasFirebaseConfig } from "../lib/firebase";
 import styles from "./AuthPages.module.css";
+import { apiFetch } from "../lib/api";
 
 const googleProvider = new GoogleAuthProvider();
 
@@ -19,10 +20,24 @@ export function Login() {
 
   async function onSubmit(e) {
     e.preventDefault();
+    if (!hasFirebaseConfig || !auth) {
+      setError("Firebase is not configured yet. Add web/.env.local to test sign-in.");
+      return;
+    }
     setError("");
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const { user } = await signInWithEmailAndPassword(auth, email, password);
+      const token = await user.getIdToken();
+      apiFetch("/api/v1/events/track", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          eventType: "auth_login",
+          content: "login",
+          meta: { provider: "password" },
+        }),
+      }).catch(() => {});
       navigate("/dashboard");
     } catch (err) {
       setError(err.message);
@@ -32,10 +47,24 @@ export function Login() {
   }
 
   async function onGoogleSignIn() {
+    if (!hasFirebaseConfig || !auth) {
+      setError("Firebase is not configured yet. Add web/.env.local to test Google sign-in.");
+      return;
+    }
     setError("");
     setLoading(true);
     try {
-      await signInWithPopup(auth, googleProvider);
+      const { user } = await signInWithPopup(auth, googleProvider);
+      const token = await user.getIdToken();
+      apiFetch("/api/v1/events/track", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          eventType: "auth_login",
+          content: "login",
+          meta: { provider: "google" },
+        }),
+      }).catch(() => {});
       navigate("/dashboard");
     } catch (err) {
       setError(err.message);

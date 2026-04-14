@@ -1,6 +1,6 @@
 chrome.runtime.onInstalled.addListener(() => {
   void chrome.sidePanel.setOptions({
-    path: "sidepanel.html",
+    path: "dist/sidepanel.html",
     enabled: true,
   });
 });

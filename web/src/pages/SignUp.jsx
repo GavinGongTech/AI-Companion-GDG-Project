@@ -4,8 +4,9 @@ import {
   createUserWithEmailAndPassword,
   updateProfile,
 } from "firebase/auth";
-import { auth } from "../lib/firebase";
+import { auth, hasFirebaseConfig } from "../lib/firebase";
 import styles from "./AuthPages.module.css";
+import { apiFetch } from "../lib/api";
 
 export function SignUp() {
   const navigate = useNavigate();
@@ -17,6 +18,10 @@ export function SignUp() {
 
   async function onSubmit(e) {
     e.preventDefault();
+    if (!hasFirebaseConfig || !auth) {
+      setError("Firebase is not configured yet. Add web/.env.local to test account creation.");
+      return;
+    }
     setError("");
     setLoading(true);
     try {
@@ -26,6 +31,16 @@ export function SignUp() {
         password,
       );
       await updateProfile(user, { displayName: name });
+      const token = await user.getIdToken();
+      apiFetch("/api/v1/events/track", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          eventType: "auth_signup",
+          content: "signup",
+          meta: { provider: "password" },
+        }),
+      }).catch(() => {});
       navigate("/welcome");
     } catch (err) {
       setError(err.message);
