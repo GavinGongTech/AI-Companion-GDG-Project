@@ -7,5 +7,17 @@ const firebaseConfig = {
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
 };
 
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+const hasFirebaseConfig = Object.values(firebaseConfig).every(Boolean);
+
+let auth = null;
+
+if (hasFirebaseConfig) {
+  const app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+} else if (import.meta.env.DEV) {
+  console.warn(
+    "Firebase config is missing. Running the web app in UI-only mode.",
+  );
+}
+
+export { auth, hasFirebaseConfig };
