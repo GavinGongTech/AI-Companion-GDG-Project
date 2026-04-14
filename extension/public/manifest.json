@@ -23,6 +23,7 @@
     {
       "matches": [
         "*://*.brightspace.com/*",
+        "*://brightspace.nyu.edu/*",
         "*://*.gradescope.com/*"
       ],
       "js": ["content.js"],

@@ -11,5 +11,17 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-HXJRBN6X7Q",
 };
 
-const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+const hasFirebaseConfig = Object.values(firebaseConfig).every(Boolean);
+
+let auth = null;
+
+if (hasFirebaseConfig) {
+  const app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+} else if (import.meta.env.DEV) {
+  console.warn(
+    "Firebase config is missing. Running the web app in UI-only mode.",
+  );
+}
+
+export { auth, hasFirebaseConfig };

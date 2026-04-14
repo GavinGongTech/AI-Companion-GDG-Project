@@ -15,7 +15,7 @@
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--accent-strong);
+  color: var(--text-muted);
 }
 
 .headline {
@@ -27,10 +27,7 @@
 }
 
 .headlineAccent {
-  background: linear-gradient(120deg, var(--accent) 0%, #7ae8de 50%, #b8f7f0 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--text-soft);
 }
 
 .lede {
@@ -56,14 +53,14 @@
   border-radius: var(--radius-pill);
   font-weight: 600;
   font-size: 0.95rem;
-  color: var(--bg-deep);
+  color: #ffffff;
   background: var(--accent);
   box-shadow: var(--shadow-soft);
-  transition: transform 0.15s ease, filter 0.15s ease;
+  transition: transform 0.15s ease, opacity 0.15s ease;
 }
 
 .primaryBtn:hover {
-  filter: brightness(1.05);
+  opacity: 0.92;
   transform: translateY(-1px);
 }
 
@@ -77,13 +74,13 @@
   font-size: 0.95rem;
   color: var(--text-primary);
   border: 1px solid var(--border-subtle);
-  background: rgba(255, 255, 255, 0.03);
+  background: #f9fafb;
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 
 .secondaryBtn:hover {
   border-color: var(--border-glow);
-  background: rgba(62, 224, 208, 0.06);
+  background: var(--bg-muted);
 }
 
 .meta {
@@ -128,7 +125,6 @@
   border: 1px solid var(--border-subtle);
   background: var(--bg-card);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(12px);
 }
 
 .sectionTitle {
@@ -146,8 +142,8 @@
 .diagram {
   padding: 1.25rem;
   border-radius: var(--radius-md);
-  border: 1px dashed var(--border-glow);
-  background: rgba(62, 224, 208, 0.04);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-muted);
   text-align: center;
 }
 
@@ -163,14 +159,15 @@
 .diagramNode {
   padding: 0.35rem 0.65rem;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
+  background: #ffffff;
+  border: 1px solid var(--border-subtle);
 }
 
 .diagramNodeEm {
   padding: 0.35rem 0.65rem;
   border-radius: 8px;
-  background: var(--accent-dim);
-  color: var(--accent);
+  background: var(--accent);
+  color: #ffffff;
   font-weight: 600;
 }
 
@@ -207,12 +204,12 @@
   padding: 1.35rem 1.25rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
-  background: rgba(13, 17, 24, 0.65);
+  background: var(--bg-card);
   transition: border-color 0.2s ease, transform 0.2s ease;
 }
 
 .featureCard:hover {
-  border-color: rgba(62, 224, 208, 0.25);
+  border-color: var(--border-glow);
   transform: translateY(-2px);
 }
 
@@ -253,7 +250,7 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
-  background: rgba(13, 17, 24, 0.65);
+  background: var(--bg-card);
 }
 
 .comparisonTable th,
@@ -269,7 +266,7 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text-muted);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-muted);
 }
 
 .comparisonTable th:first-child {
@@ -277,7 +274,7 @@
 }
 
 .comparisonTable th:nth-child(2) {
-  color: var(--accent);
+  color: var(--text-primary);
 }
 
 .comparisonTable tbody tr:last-child td {
@@ -289,7 +286,7 @@
 }
 
 .comparisonTable tbody tr:hover {
-  background: rgba(62, 224, 208, 0.04);
+  background: #f9fafb;
 }
 
 .comparisonTable td:first-child {
@@ -298,7 +295,7 @@
 }
 
 .cellYes {
-  color: var(--accent);
+  color: var(--text-primary);
   font-weight: 600;
 }
 
@@ -315,11 +312,8 @@
   padding: clamp(2rem, 5vw, 3rem);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-subtle);
-  background: linear-gradient(
-    160deg,
-    rgba(62, 224, 208, 0.08) 0%,
-    rgba(6, 8, 12, 0.9) 45%
-  );
+  background: var(--bg-card);
+  box-shadow: var(--shadow-soft);
 }
 
 .ctaTitle {
@@ -352,13 +346,13 @@
   font-size: 0.95rem;
   color: var(--text-primary);
   border: 1px solid var(--border-subtle);
-  background: transparent;
+  background: #f9fafb;
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 
 .ghostBtn:hover {
-  border-color: var(--accent);
-  background: rgba(62, 224, 208, 0.06);
+  border-color: var(--border-glow);
+  background: var(--bg-muted);
 }
 
 @media (max-width: 800px) {

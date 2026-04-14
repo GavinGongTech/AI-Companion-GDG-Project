@@ -83,9 +83,9 @@ export default function Dashboard() {
   }, [nodes]);
 
   function barColor(rate) {
-    if (rate < 0.4) return "#f07178";
-    if (rate < 0.7) return "#ffcb6b";
-    return "#3ee0d0";
+    if (rate < 0.4) return "#ef4444";
+    if (rate < 0.7) return "#f59e0b";
+    return "#22c55e";
   }
 
   function formatDate(ts) {
@@ -102,7 +102,7 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className={styles.page}>
-        <p style={{ color: "#8b97a8" }}>Loading dashboard...</p>
+        <p className={styles.empty}>Loading dashboard...</p>
       </div>
     );
   }
@@ -119,11 +119,13 @@ export default function Dashboard() {
 
   return (
     <div className={styles.page}>
-      <h1 style={{ margin: "0 0 0.5rem", fontSize: "1.5rem" }}>
+      <h1 className={styles.heading}>
         Dashboard{user?.displayName ? ` \u2014 ${user.displayName}` : ""}
       </h1>
+      <p className={styles.subheading}>
+        Your progress, review queue, and recent study activity in one place.
+      </p>
 
-      {/* Stats row */}
       <div className={styles.statRow}>
         <div className={styles.stat}>
           <span className={styles.statValue}>{nodes.length}</span>
@@ -146,36 +148,28 @@ export default function Dashboard() {
       </div>
 
       <div className={styles.grid}>
-        {/* Network Graph */}
         <div className={styles.panel}>
           <h2 className={styles.panelTitle}>Concept Network</h2>
           {nodes.length > 0 ? (
             <div ref={graphRef} className={styles.graphContainer} />
           ) : (
-            <p style={{ color: "#8b97a8", fontSize: "0.85rem" }}>
+            <p className={styles.empty}>
               No concepts yet. Start studying to build your graph.
             </p>
           )}
         </div>
 
-        {/* Drill Queue */}
         <div className={styles.panel}>
           <h2 className={styles.panelTitle}>Drill Queue</h2>
           {drill.length > 0 ? (
             <div className={styles.drillList}>
               {drill.slice(0, 10).map((item) => (
                 <div key={item.conceptNode} className={styles.drillItem}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      marginBottom: "0.25rem",
-                    }}
-                  >
-                    <span style={{ fontSize: "0.85rem", fontWeight: 500 }}>
+                  <div className={styles.itemRow}>
+                    <span className={styles.itemName}>
                       {item.conceptNode.replace(/_/g, " ")}
                     </span>
-                    <span style={{ fontSize: "0.75rem", color: "#8b97a8" }}>
+                    <span className={styles.itemMeta}>
                       {Math.round((item.accuracyRate || 0) * 100)}%
                     </span>
                   </div>
@@ -192,13 +186,10 @@ export default function Dashboard() {
               ))}
             </div>
           ) : (
-            <p style={{ color: "#8b97a8", fontSize: "0.85rem" }}>
-              No items in drill queue yet.
-            </p>
+            <p className={styles.empty}>No items in drill queue yet.</p>
           )}
         </div>
 
-        {/* Session History */}
         <div className={`${styles.panel} ${styles.fullWidth}`}>
           <h2 className={styles.panelTitle}>Recent Activity</h2>
           {events.length > 0 ? (
@@ -211,24 +202,16 @@ export default function Dashboard() {
                   >
                     {evt.eventType?.replace(/_/g, " ")}
                   </span>
-                  <span style={{ flex: 1, fontSize: "0.85rem" }}>
+                  <span className={styles.eventContent}>
                     {evt.content?.slice(0, 80)}
                     {evt.content?.length > 80 ? "..." : ""}
                   </span>
-                  <span
-                    style={{
-                      fontSize: "0.75rem",
-                      color: "#8b97a8",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {formatDate(evt.createdAt)}
-                  </span>
+                  <span className={styles.eventTime}>{formatDate(evt.createdAt)}</span>
                 </div>
               ))}
             </div>
           ) : (
-            <p style={{ color: "#8b97a8", fontSize: "0.85rem" }}>
+            <p className={styles.empty}>
               No activity yet. Start asking questions or taking quizzes.
             </p>
           )}
