@@ -50,8 +50,8 @@ export default defineConfig(({ mode }) => ({
       },
       output: {
         entryFileNames: "[name].js",
-        chunkFileNames: "chunks/[name]-[hash].js",
-        assetFileNames: "assets/[name]-[hash][extname]",
+        chunkFileNames: mode === "production" ? "chunks/[name]-[hash].js" : "chunks/[name].js",
+        assetFileNames: mode === "production" ? "assets/[name]-[hash][extname]" : "assets/[name][extname]",
         manualChunks(id) {
           if (id.includes("node_modules/katex")) {
             return "katex";

@@ -190,8 +190,7 @@ export function Quiz() {
                   className={styles.primaryButton}
                   type="button"
                   onClick={() => {
-                    setQuestions([]);
-                    setCurrentIdx(0);
+                    setCurrentIdx(questions.length);
                   }}
                 >
                   See Results
@@ -216,6 +215,8 @@ export function Quiz() {
             onClick={() => {
               setQuestions([]);
               setCurrentIdx(0);
+              setSelected(null);
+              setResult(null);
               setScore({ correct: 0, total: 0 });
             }}
           >

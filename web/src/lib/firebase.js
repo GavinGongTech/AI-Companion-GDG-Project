@@ -16,7 +16,7 @@ const hasFirebaseConfig = Object.values(firebaseConfig).every(Boolean);
 let auth = null;
 
 if (hasFirebaseConfig) {
-  const app = initializeApp(firebaseConfig);
+  const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
   auth = getAuth(app);
 } else if (import.meta.env.DEV) {
   console.warn(
