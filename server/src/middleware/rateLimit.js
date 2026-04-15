@@ -6,7 +6,7 @@ import rateLimit from "express-rate-limit";
  */
 export const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 30,
+  limit: 30,
   // Prefer user-based limiting when authenticated; otherwise fall back to IP.
   // (We avoid relying on express-rate-limit internal exports for compatibility.)
   keyGenerator: (req) => req.user?.uid || req.ip,
