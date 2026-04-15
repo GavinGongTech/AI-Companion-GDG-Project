@@ -40,9 +40,6 @@ export function Quiz() {
     }
   }
 
-  // TODO(human): Implement the submitAnswer function
-  // This should call POST /api/v1/quiz/answer with the selected answer,
-  // update the score, show the explanation, and advance to the next question.
   async function submitAnswer() {
     if (selected === null) return;
     const q = questions[currentIdx];
