@@ -1,31 +1,7 @@
 version: 2
 updates:
-  - package-ecosystem: "npm"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 10
-
-  - package-ecosystem: "npm"
-    directory: "/server"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 10
-
-  - package-ecosystem: "npm"
-    directory: "/web"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 10
-
-  - package-ecosystem: "npm"
-    directory: "/extension"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 10
-
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 10
+  # Dependabot disabled — Renovate handles all dependency updates.
+  # Renovate correctly updates bun.lock alongside package.json,
+  # which Dependabot cannot do for bun monorepos.
+  #
+  # Install Renovate: https://github.com/apps/renovate
