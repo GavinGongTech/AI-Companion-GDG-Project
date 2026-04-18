@@ -7,6 +7,8 @@ import styles from "./Pages.module.css";
 
 export function Ask() {
   const [question, setQuestion] = useState("");
+  const [courseId, setCourseId] = useState("");
+  const [courses, setCourses] = useState([]);
   const [response, setResponse] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -45,6 +47,12 @@ export function Ask() {
     });
     // Cancel any in-flight SSE reader when the panel navigates away.
     return () => { readerRef.current?.cancel(); };
+  }, []);
+
+  useEffect(() => {
+    apiFetch("/api/v1/courses")
+      .then((data) => setCourses(data.courses || []))
+      .catch(() => {});
   }, []);
 
   async function handleSubmit(e) {
@@ -167,6 +175,20 @@ export function Ask() {
         </div>
 
         <form className={styles.form} onSubmit={handleSubmit}>
+          {courses.length > 0 && (
+            <select
+              className={styles.textarea}
+              value={courseId}
+              onChange={(e) => setCourseId(e.target.value)}
+            >
+              <option value="">All courses</option>
+              {courses.map((c) => (
+                <option key={c.courseId} value={c.courseId}>
+                  {c.courseName || c.courseId}
+                </option>
+              ))}
+            </select>
+          )}
           <textarea
             className={styles.textarea}
             rows={6}
