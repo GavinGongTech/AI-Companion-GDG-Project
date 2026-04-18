@@ -1,7 +1,0 @@
-version: 2
-updates:
-  # Dependabot disabled — Renovate handles all dependency updates.
-  # Renovate correctly updates bun.lock alongside package.json,
-  # which Dependabot cannot do for bun monorepos.
-  #
-  # Install Renovate: https://github.com/apps/renovate

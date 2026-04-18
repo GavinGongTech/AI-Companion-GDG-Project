@@ -5,6 +5,7 @@ import { errorHandler } from "./middleware/errorHandler.js";
 import { apiLimiter } from "./middleware/rateLimit.js";
 import { db } from "./db/firebase.js";
 import { env } from "./env.js";
+import { logger } from "./logger.js";
 
 export const app = express();
 
@@ -40,6 +41,17 @@ app.use((_req, res, next) => {
 });
 
 app.use(express.json({ limit: "1mb" }));
+
+app.use((req, res, next) => {
+  const start = Date.now()
+  res.on('finish', () => {
+    logger.info(
+      { method: req.method, url: req.url, status: res.statusCode, ms: Date.now() - start },
+      'http'
+    )
+  })
+  next()
+})
 
 app.get("/health", async (_req, res) => {
   let firestoreOk = false;
