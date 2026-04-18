@@ -1,20 +1,37 @@
 import { GoogleGenAI } from "@google/genai";
 import { env } from "../env.js";
 
+const PRIMARY_MODEL = env.geminiModel;
+const FAST_MODEL = env.geminiFastModel;
+
 /**
  * Parse JSON from Gemini response text with retry.
  * Gemini sometimes wraps JSON in markdown fences — strip them before parsing.
  */
 function parseJsonResponse(text) {
-  let cleaned = text.trim();
-  // Strip markdown code fences if present
-  if (cleaned.startsWith("```")) {
-    cleaned = cleaned.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
+  const cleaned = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch (e) {
+    throw new Error(`Gemini returned invalid JSON: ${e.message} | responseLength: ${cleaned.length}`, { cause: e });
   }
-  return JSON.parse(cleaned);
 }
 
 export const ai = new GoogleGenAI({ apiKey: env.geminiApiKey });
+
+function buildSmgSection(smg, { label, includeInteractions = false, includeDifficulty = null } = {}) {
+  if (!smg) return "";
+  const topErrors = Object.entries(smg.errorTypeMap || {})
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([type, count]) => `${type} (${count}x)`)
+    .join(", ");
+  let section = `\n${label}:\n- Accuracy: ${(Number(smg.accuracyRate ?? 0) * 100).toFixed(0)}%`;
+  if (includeInteractions) section += `\n- Interactions: ${smg.interactionCount}`;
+  section += `\n- Common errors: ${topErrors || "none yet"}`;
+  if (includeDifficulty) section += `\n- Target difficulty: ${includeDifficulty}`;
+  return section;
+}
 
 /**
  * Classify a student interaction to identify the misconception concept node and error type.
@@ -43,11 +60,11 @@ Respond with ONLY a JSON object:
 }`;
 
   const result = await ai.models.generateContent({
-    model: "gemini-2.0-flash",
+    model: FAST_MODEL,
     contents: prompt,
     config: {
       responseMimeType: "application/json",
-      temperature: 0.4,
+      temperature: 0.0,
     },
   });
   return parseJsonResponse(result.text);
@@ -63,20 +80,10 @@ Respond with ONLY a JSON object:
  * @returns {Promise<{ solution: string, mainConcept: string, relevantLecture: string, keyFormulas: string[], personalizedCallout: string }>}
  */
 export async function explainConcept(question, context, smgHistory = null) {
-  let smgSection = "";
-  if (smgHistory) {
-    const topErrors = Object.entries(smgHistory.errorTypeMap || {})
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([type, count]) => `${type} (${count}x)`)
-      .join(", ");
-    smgSection = `
-STUDENT HISTORY FOR THIS CONCEPT:
-- Accuracy rate: ${(smgHistory.accuracyRate * 100).toFixed(0)}%
-- Interactions: ${smgHistory.interactionCount}
-- Common error types: ${topErrors || "none yet"}
-Use this history to add a personalized callout addressing their specific weaknesses.`;
-  }
+  const smgSection = smgHistory
+    ? buildSmgSection(smgHistory, { label: "STUDENT HISTORY FOR THIS CONCEPT", includeInteractions: true }) +
+      "\nUse this history to add a personalized callout addressing their specific weaknesses."
+    : "";
 
   const prompt = `You are an AI study companion. A student asked the following question.
 Use the course material context below to give a clear, detailed explanation.
@@ -98,7 +105,7 @@ Respond with ONLY a JSON object:
 }`;
 
   const result = await ai.models.generateContent({
-    model: "gemini-2.0-flash",
+    model: PRIMARY_MODEL,
     contents: prompt,
     config: {
       responseMimeType: "application/json",
@@ -130,20 +137,10 @@ export async function generateQuiz(topic, chunks, smgData = null, count = 1) {
     else difficultyHint = "hard";
   }
 
-  let smgSection = "";
-  if (smgData) {
-    const topErrors = Object.entries(smgData.errorTypeMap || {})
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([type, count]) => `${type} (${count}x)`)
-      .join(", ");
-    smgSection = `
-STUDENT PERFORMANCE ON THIS TOPIC:
-- Accuracy: ${(smgData.accuracyRate * 100).toFixed(0)}%
-- Common errors: ${topErrors || "none"}
-- Target difficulty: ${difficultyHint}
-Design questions that specifically target the student's weak areas.`;
-  }
+  const smgSection = smgData
+    ? buildSmgSection(smgData, { label: "STUDENT PERFORMANCE ON THIS TOPIC", includeDifficulty: difficultyHint }) +
+      "\nDesign questions that specifically target the student's weak areas."
+    : "";
 
   const prompt = `You are an AI study companion generating quiz questions styled like a professor's exam.
 
@@ -170,18 +167,45 @@ Respond with ONLY a JSON object:
 }`;
 
   const result = await ai.models.generateContent({
-    model: "gemini-2.0-flash",
+    model: PRIMARY_MODEL,
     contents: prompt,
     config: {
       responseMimeType: "application/json",
       temperature: 0.7,
     },
   });
-  const parsed = parseJsonResponse(result.text);
+  return parseJsonResponse(result.text);
+}
 
-  // Backward compat: if caller expects a single question shape
-  if (count === 1 && parsed.questions?.length > 0) {
-    return parsed.questions[0];
-  }
-  return parsed;
+/**
+ * Stream a plain-text explanation for a student question using RAG context.
+ * Same inputs as explainConcept but returns a streaming async iterable.
+ *
+ * @param {string} question
+ * @param {string} context       - Concatenated chunk content from vector retrieval
+ * @param {object} [smgHistory]  - Previous SMG data { accuracyRate, errorTypeMap, interactionCount }
+ * @returns {Promise<AsyncIterable>} Pino-compatible stream from generateContentStream
+ */
+export async function explainConceptStream(question, context, smgHistory = null) {
+  const smgSection = smgHistory
+    ? buildSmgSection(smgHistory, { label: "STUDENT HISTORY", includeInteractions: true }) +
+      "\nUse this to personalize your response."
+    : "";
+
+  const prompt = `You are an AI study companion. Explain the following in a clear, structured way.
+
+COURSE MATERIAL CONTEXT:
+${context || 'No course materials — use general knowledge.'}
+${smgSection}
+
+STUDENT QUESTION: ${question}
+
+Give a clear, step-by-step explanation. Highlight key formulas. Be concise but thorough.`
+
+  const stream = await ai.models.generateContentStream({
+    model: PRIMARY_MODEL,
+    contents: prompt,
+    config: { temperature: 0.4 },
+  })
+  return stream
 }

@@ -1,5 +1,6 @@
 import { db } from "../db/firebase.js";
 import { FieldValue } from "firebase-admin/firestore";
+import { logger } from "../logger.js";
 
 /**
  * SM-2 algorithm parameters.
@@ -71,7 +72,7 @@ export async function recordInteraction(uid, conceptNode, { errorType, confidenc
     const count = (data.interactionCount || 0) + 1;
 
     // SM-2 update
-    const prevInterval = data.reviewIntervalDays || 1;
+    const prevInterval = data.reviewIntervalDays ?? 1;
     const prevEase = data.easeFactor || 2.5;
     const { interval, easeFactor } = sm2(prevInterval, prevEase, quality);
 
@@ -90,6 +91,7 @@ export async function recordInteraction(uid, conceptNode, { errorType, confidenc
       errorTypeMap[errorType] = (errorTypeMap[errorType] || 0) + 1;
     }
 
+    const effectiveCourseId = courseId || data.courseId || null;
     await smgRef.update({
       accuracyRate,
       correctCount,
@@ -101,17 +103,28 @@ export async function recordInteraction(uid, conceptNode, { errorType, confidenc
       nextReviewDate,
       lastInteractionAt: FieldValue.serverTimestamp(),
       lastErrorAt: isCorrect === false ? FieldValue.serverTimestamp() : (data.lastErrorAt || null),
-      courseId: courseId || data.courseId,
+      courseId: effectiveCourseId,
     });
+    if (accuracyRate >= 0.9) {
+      const statsRef = db.collection("users").doc(uid).collection("gamification").doc("stats");
+      db.runTransaction(async (txn) => {
+        const snap = await txn.get(statsRef);
+        const current = snap.exists ? (snap.data().maxAccuracy ?? 0) : 0;
+        if (accuracyRate > current) {
+          txn.set(statsRef, { maxAccuracy: accuracyRate }, { merge: true });
+        }
+      }).catch((err) => logger.warn({ err, uid, conceptNode }, 'gamification stat sync failed'));
+    }
   } else {
     // First interaction with this concept
     const { interval, easeFactor } = sm2(0, 2.5, quality);
     const nextReviewDate = new Date();
     nextReviewDate.setDate(nextReviewDate.getDate() + interval);
 
+    const firstAccuracy = isCorrect !== undefined ? (isCorrect ? 1 : 0) : 0;
     await smgRef.set({
       courseId: courseId || null,
-      accuracyRate: isCorrect !== undefined ? (isCorrect ? 1 : 0) : 0,
+      accuracyRate: firstAccuracy,
       correctCount: isCorrect === true ? 1 : 0,
       incorrectCount: isCorrect === false ? 1 : 0,
       errorTypeMap: errorType && errorType !== "none" ? { [errorType]: 1 } : {},
@@ -122,6 +135,11 @@ export async function recordInteraction(uid, conceptNode, { errorType, confidenc
       lastInteractionAt: FieldValue.serverTimestamp(),
       lastErrorAt: isCorrect === false ? FieldValue.serverTimestamp() : null,
     });
+    const newConceptUpdates = { conceptCount: FieldValue.increment(1) };
+    if (firstAccuracy >= 0.9) newConceptUpdates.maxAccuracy = firstAccuracy;
+    db.collection("users").doc(uid).collection("gamification").doc("stats")
+      .set(newConceptUpdates, { merge: true })
+      .catch((err) => logger.warn({ err, uid, conceptNode }, 'gamification stat sync failed'));
   }
 }
 
@@ -177,8 +195,13 @@ export async function getGraph(uid) {
  */
 export async function getDrillQueue(uid, limit = 20) {
   const smgRef = db.collection("users").doc(uid).collection("smg");
-  const snap = await smgRef.get();
   const now = new Date();
+  const lookahead = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+  const snap = await smgRef
+    .where("nextReviewDate", "<=", lookahead)
+    .orderBy("nextReviewDate", "asc")
+    .limit(limit * 5)
+    .get();
 
   const items = snap.docs.map((doc) => {
     const data = doc.data();
