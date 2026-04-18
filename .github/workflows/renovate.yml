@@ -1,0 +1,43 @@
+name: Renovate
+
+on:
+  schedule:
+    - cron: '0 4 * * 1' # Mondays 4am UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  renovate:
+    name: renovate-self-hosted
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: renovatebot/github-action@eb932558ad942cccfd8211cf535f17ff183a9f74 # v46.1.9
+        with:
+          configurationFile: renovate.json
+          token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          RENOVATE_AUTODISCOVER: false
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
+
+      # GITHUB_TOKEN PRs don't auto-fire pull_request events (platform rule).
+      # Dispatch CI manually on every open renovate/* branch so PR checks populate.
+      - name: Trigger CI on open Renovate PRs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh pr list \
+            --base main \
+            --state open \
+            --json headRefName \
+            --jq '.[] | select(.headRefName | startswith("renovate/")) | .headRefName' \
+          | while IFS= read -r branch; do
+              echo "Triggering CI on: $branch"
+              gh workflow run ci.yml --ref "$branch" || true
+            done
