@@ -3,8 +3,10 @@ import { signOut } from "firebase/auth";
 import { auth } from "../lib/firebase";
 import { useAuth } from "../lib/auth";
 import { apiFetch } from "../lib/api";
+import { ThemeToggle } from "./ThemeToggle";
 import styles from "./Layout.module.css";
 import { useEffect } from "react";
+import { motion } from "framer-motion";
 
 export function Layout() {
   const user = useAuth();
@@ -32,38 +34,58 @@ export function Layout() {
       }),
     }).catch(() => {});
 
-    await signOut(auth);
+    if (auth) await signOut(auth);
     navigate("/");
+  }
+
+  function navClass({ isActive }: { isActive: boolean }) {
+    return `${styles.navLink} ${isActive ? styles.navActive : ""}`;
   }
 
   return (
     <div className={styles.shell}>
-      <div className={styles.bgGrid} aria-hidden />
-      <div className={styles.bgGlow} aria-hidden />
       <header className={styles.header}>
         <NavLink to="/" className={styles.brand}>
           <span className={styles.brandMark} />
           <span className={styles.brandText}>Study Flow</span>
         </NavLink>
         <nav className={styles.nav} aria-label="Primary">
-          <NavLink
-            to="/download"
-            className={({ isActive }) =>
-              `${styles.navLink} ${isActive ? styles.navActive : ""}`
-            }
-          >
-            Download
-          </NavLink>
+          <div className={styles.navIndicatorWrap}>
+            <NavLink to="/download" className={navClass}>
+              {({ isActive }) => (
+                <>
+                  Download
+                  {isActive && (
+                    <motion.span
+                      layoutId="nav-active-dot"
+                      className={styles.navIndicator}
+                      transition={{ type: "spring", stiffness: 420, damping: 36 }}
+                    />
+                  )}
+                </>
+              )}
+            </NavLink>
+          </div>
+
           {user ? (
             <>
-              <NavLink
-                to="/dashboard"
-                className={({ isActive }) =>
-                  `${styles.navLink} ${isActive ? styles.navActive : ""}`
-                }
-              >
-                Dashboard
-              </NavLink>
+              <div className={styles.navIndicatorWrap}>
+                <NavLink to="/dashboard" className={navClass}>
+                  {({ isActive }) => (
+                    <>
+                      Dashboard
+                      {isActive && (
+                        <motion.span
+                          layoutId="nav-active-dot"
+                          className={styles.navIndicator}
+                          transition={{ type: "spring", stiffness: 420, damping: 36 }}
+                        />
+                      )}
+                    </>
+                  )}
+                </NavLink>
+              </div>
+              <ThemeToggle />
               <button
                 type="button"
                 className={styles.cta}
@@ -74,14 +96,23 @@ export function Layout() {
             </>
           ) : (
             <>
-              <NavLink
-                to="/login"
-                className={({ isActive }) =>
-                  `${styles.navLink} ${isActive ? styles.navActive : ""}`
-                }
-              >
-                Log in
-              </NavLink>
+              <div className={styles.navIndicatorWrap}>
+                <NavLink to="/login" className={navClass}>
+                  {({ isActive }) => (
+                    <>
+                      Log in
+                      {isActive && (
+                        <motion.span
+                          layoutId="nav-active-dot"
+                          className={styles.navIndicator}
+                          transition={{ type: "spring", stiffness: 420, damping: 36 }}
+                        />
+                      )}
+                    </>
+                  )}
+                </NavLink>
+              </div>
+              <ThemeToggle />
               <NavLink to="/signup" className={styles.cta}>
                 Sign up
               </NavLink>

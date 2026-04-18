@@ -1,14 +1,22 @@
 import { useMemo } from "react";
 import katex from "katex";
 
+interface Props {
+  text: string;
+}
+
+type TextPart = { type: "text"; content: string };
+type MathPart = { type: "math"; html: string; isDisplay: boolean };
+type Part = TextPart | MathPart;
+
 /**
  * Renders text with inline ($...$) and display ($$...$$) LaTeX math.
  * Non-math text is rendered as plain text spans.
  */
-export function MathRenderer({ text }) {
-  const parts = useMemo(() => {
+export function MathRenderer({ text }: Props) {
+  const parts = useMemo<Part[]>(() => {
     if (!text) return [];
-    const result = [];
+    const result: Part[] = [];
     const regex = /(\$\$[\s\S]+?\$\$|\$[^\n$]+?\$)/g;
     let lastIndex = 0;
     let match;

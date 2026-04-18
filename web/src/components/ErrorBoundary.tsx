@@ -1,17 +1,26 @@
-import { Component } from "react";
+import { Component, type ReactNode } from "react";
 
-export class ErrorBoundary extends Component {
-  constructor(props) {
+interface Props {
+  children: ReactNode;
+}
+
+interface State {
+  hasError: boolean;
+  error: Error | null;
+}
+
+export class ErrorBoundary extends Component<Props, State> {
+  constructor(props: Props) {
     super(props);
-    this.state = { error: null };
+    this.state = { hasError: false, error: null };
   }
 
-  static getDerivedStateFromError(error) {
-    return { error };
+  static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error };
   }
 
   render() {
-    if (this.state.error) {
+    if (this.state.hasError && this.state.error) {
       return (
         <div style={{
           padding: "2rem",
@@ -24,7 +33,7 @@ export class ErrorBoundary extends Component {
             {this.state.error.message || "An unexpected error occurred."}
           </p>
           <button
-            onClick={() => this.setState({ error: null })}
+            onClick={() => this.setState({ hasError: false, error: null })}
             style={{
               marginTop: "1rem",
               padding: "0.5rem 1rem",
