@@ -9,3 +9,8 @@ dist
 *serviceaccount*.json
 uploads/
 package-lock.json
+coverage/
+.claude/
+.codex
+serve
+*.Zone.Identifier

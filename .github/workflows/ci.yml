@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  checks: write
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -43,12 +44,22 @@ jobs:
           cache: "bun"
       - run: bun install --frozen-lockfile
       - name: Test server
-        run: bun run --cwd server test
+        run: bun run --cwd server test:coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@ad3126e916f78f00edff4d0a3d5dc4cbb13d4f15 # v5.4.2
+        with:
+          files: ./server/coverage/lcov.info
+          flags: server
+          fail_ci_if_error: false
 
   build:
     name: ci-build-web-extension
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
@@ -58,13 +69,42 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Build web and extension
         run: bun run build
+        env:
+          VITE_API_URL: http://localhost:3000
+          VITE_FIREBASE_API_KEY: ci-placeholder
+          VITE_FIREBASE_AUTH_DOMAIN: ci-placeholder.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID: ci-placeholder
+          VITE_FIREBASE_STORAGE_BUCKET: ci-placeholder.appspot.com
+          VITE_FIREBASE_MESSAGING_SENDER_ID: "000000000000"
+          VITE_FIREBASE_APP_ID: 1:000000000000:web:ci-placeholder
+
+      - name: Report compressed bundle sizes
+        uses: preactjs/compressed-size-action@f780fd104e57b5b8e00b2a3cc67e2f5e0e82f494 # v2.6.0
+        if: ${{ github.event_name == 'pull_request' }}
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          pattern: "{web/dist/**/*.{js,css},extension/dist/**/*.{js,css}}"
+          strip-hash: "-[A-Za-z0-9]{8}\\.js$"
+
+  typecheck:
+    name: ci-typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.3.11
+          cache: "bun"
+      - run: bun install --frozen-lockfile
+      - name: Type check web
+        run: bun run --cwd web typecheck
 
   dependency-review:
     name: ci-dependency-review
     if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    continue-on-error: true
     permissions:
       contents: read
     steps:
@@ -75,15 +115,17 @@ jobs:
     name: ci-required
     runs-on: ubuntu-latest
     if: ${{ always() }}
-    needs: [lint, test-server, build]
+    needs: [lint, typecheck, test-server, build, dependency-review]
     steps:
       - name: Enforce required CI results
         run: |
           set -euo pipefail
           for result in \
             "${{ needs.lint.result }}" \
+            "${{ needs.typecheck.result }}" \
             "${{ needs.test-server.result }}" \
-            "${{ needs.build.result }}"; do
+            "${{ needs.build.result }}" \
+            "${{ needs.dependency-review.result }}"; do
             if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
               echo "A required CI job did not pass (result=$result)."
               exit 1

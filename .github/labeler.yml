@@ -1,0 +1,35 @@
+# Auto-labeler configuration — maps changed file paths to PR labels.
+# Labels must exist in the repo (Settings → Labels) before they can be applied.
+
+server:
+  - changed-files:
+    - any-glob-to-any-file:
+      - "server/**"
+
+web:
+  - changed-files:
+    - any-glob-to-any-file:
+      - "web/**"
+
+extension:
+  - changed-files:
+    - any-glob-to-any-file:
+      - "extension/**"
+
+ci:
+  - changed-files:
+    - any-glob-to-any-file:
+      - ".github/**"
+
+dependencies:
+  - changed-files:
+    - any-glob-to-any-file:
+      - "**/package.json"
+      - "bun.lock"
+      - "renovate.json"
+
+docs:
+  - changed-files:
+    - any-glob-to-any-file:
+      - "**/*.md"
+      - "docs/**"
