@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { GoogleAuthProvider, signInWithCredential } from "firebase/auth";
-import { auth } from "../lib/firebase";
+import { auth, hasFirebaseConfig } from "../lib/firebase";
 import styles from "./Pages.module.css";
 
 export function SignIn() {
@@ -8,6 +8,10 @@ export function SignIn() {
   const [loading, setLoading] = useState(false);
 
   async function handleGoogleSignIn() {
+    if (!hasFirebaseConfig || !auth) {
+      setError("Firebase is not configured. Set VITE_FIREBASE_* environment variables.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {

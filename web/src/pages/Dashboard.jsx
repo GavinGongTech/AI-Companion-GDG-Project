@@ -3,6 +3,8 @@ import { useAuth } from "../lib/auth";
 import { apiFetch } from "../lib/api";
 import styles from "./Dashboard.module.css";
 
+const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:3000").replace(/\/+$/, "");
+
 export default function Dashboard() {
   const user = useAuth();
   const graphRef = useRef(null);
@@ -11,6 +13,13 @@ export default function Dashboard() {
   const [drill, setDrill] = useState([]);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const [ingestTab, setIngestTab] = useState("file");
+  const [ingestCourse, setIngestCourse] = useState("");
+  const [ingestFile, setIngestFile] = useState(null);
+  const [ingestText, setIngestText] = useState("");
+  const [ingestStatus, setIngestStatus] = useState(null);
+  const [ingestError, setIngestError] = useState(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -82,6 +91,41 @@ export default function Dashboard() {
     };
   }, [nodes]);
 
+  async function handleIngest() {
+    setIngestStatus("loading");
+    setIngestError(null);
+    try {
+      if (ingestTab === "file") {
+        const token = await user?.getIdToken?.();
+        const fd = new FormData();
+        fd.append("file", ingestFile);
+        fd.append("courseId", ingestCourse);
+        const res = await fetch(`${API_URL}/api/v1/ingest/upload`, {
+          method: "POST",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          body: fd,
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error || res.statusText);
+        }
+      } else {
+        await apiFetch("/api/v1/ingest/text", {
+          method: "POST",
+          body: JSON.stringify({
+            courseId: ingestCourse,
+            rawContent: ingestText,
+            courseName: ingestCourse,
+          }),
+        });
+      }
+      setIngestStatus("success");
+    } catch (err) {
+      setIngestStatus("error");
+      setIngestError(err.message || "Ingestion failed.");
+    }
+  }
+
   function barColor(rate) {
     if (rate < 0.4) return "#ef4444";
     if (rate < 0.7) return "#f59e0b";
@@ -148,6 +192,66 @@ export default function Dashboard() {
       </div>
 
       <div className={styles.grid}>
+        <div className={`${styles.panel} ${styles.fullWidth}`}>
+          <h2 className={styles.panelTitle}>Ingest Materials</h2>
+          <div className={styles.ingestForm}>
+            <input
+              className={styles.ingestInput}
+              placeholder="Course name (e.g. Calculus I)"
+              value={ingestCourse}
+              onChange={(e) => setIngestCourse(e.target.value)}
+            />
+            <div className={styles.tabRow}>
+              <button
+                className={`${styles.tabBtn} ${ingestTab === "file" ? styles.tabBtnActive : ""}`}
+                onClick={() => { setIngestTab("file"); setIngestStatus(null); setIngestError(null); }}
+              >
+                Upload File
+              </button>
+              <button
+                className={`${styles.tabBtn} ${ingestTab === "text" ? styles.tabBtnActive : ""}`}
+                onClick={() => { setIngestTab("text"); setIngestStatus(null); setIngestError(null); }}
+              >
+                Paste Text
+              </button>
+            </div>
+            {ingestTab === "file" && (
+              <input
+                className={styles.ingestInput}
+                type="file"
+                accept=".pdf,.txt,.md"
+                onChange={(e) => setIngestFile(e.target.files[0])}
+              />
+            )}
+            {ingestTab === "text" && (
+              <textarea
+                className={styles.ingestTextarea}
+                rows={5}
+                placeholder="Paste course notes, syllabus, or lecture content..."
+                value={ingestText}
+                onChange={(e) => setIngestText(e.target.value)}
+              />
+            )}
+            <button
+              className={styles.ingestBtn}
+              onClick={handleIngest}
+              disabled={
+                ingestStatus === "loading" ||
+                !ingestCourse.trim() ||
+                (ingestTab === "file" ? !ingestFile : !ingestText.trim())
+              }
+            >
+              {ingestStatus === "loading" ? "Ingesting..." : "Ingest"}
+            </button>
+            {ingestStatus === "success" && (
+              <p className={styles.ingestSuccess}>Ingested successfully.</p>
+            )}
+            {ingestStatus === "error" && (
+              <p className={styles.ingestError}>{ingestError}</p>
+            )}
+          </div>
+        </div>
+
         <div className={styles.panel}>
           <h2 className={styles.panelTitle}>Concept Network</h2>
           {nodes.length > 0 ? (
