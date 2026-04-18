@@ -40,9 +40,6 @@ export function Quiz() {
     }
   }
 
-  // TODO(human): Implement the submitAnswer function
-  // This should call POST /api/v1/quiz/answer with the selected answer,
-  // update the score, show the explanation, and advance to the next question.
   async function submitAnswer() {
     if (selected === null) return;
     const q = questions[currentIdx];
@@ -190,8 +187,7 @@ export function Quiz() {
                   className={styles.primaryButton}
                   type="button"
                   onClick={() => {
-                    setQuestions([]);
-                    setCurrentIdx(0);
+                    setCurrentIdx(questions.length);
                   }}
                 >
                   See Results
@@ -216,6 +212,8 @@ export function Quiz() {
             onClick={() => {
               setQuestions([]);
               setCurrentIdx(0);
+              setSelected(null);
+              setResult(null);
               setScore({ correct: 0, total: 0 });
             }}
           >

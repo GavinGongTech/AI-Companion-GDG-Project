@@ -147,8 +147,8 @@ users/{uid}
 git clone <repo-url>
 cd AI-Companion-GDG-Project
 
-# Install all workspaces
-npm install --workspaces
+# Install all workspaces (requires bun: https://bun.sh)
+cd server && bun install && cd ../web && bun install && cd ../extension && bun install && cd ..
 ```
 
 ### 2. Configure the backend
@@ -168,7 +168,7 @@ FIREBASE_PROJECT_ID=your-project-id
 
 ```bash
 cd server
-npm run dev
+bun run dev
 ```
 
 The server starts at `http://localhost:3000`. Verify with `curl http://localhost:3000/health`.
@@ -180,7 +180,7 @@ cp web/.env.example web/.env.local
 # Fill in VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN, VITE_FIREBASE_PROJECT_ID
 
 cd web
-npm run dev
+bun run dev
 ```
 
 Opens at `http://localhost:5173`.
@@ -192,7 +192,7 @@ cp extension/.env.example extension/.env
 # Fill in VITE_FIREBASE_* and VITE_API_URL
 
 cd extension
-npm run build
+bun run build
 ```
 
 Then in Chrome: Extensions -> Developer mode -> Load unpacked -> select `extension/dist`.

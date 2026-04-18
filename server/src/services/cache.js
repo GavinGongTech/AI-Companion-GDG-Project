@@ -7,6 +7,26 @@
 const store = new Map();
 
 const DEFAULT_TTL = 2 * 60 * 1000; // 2 minutes
+const MAX_ENTRIES = 5000;
+const SWEEP_INTERVAL_WRITES = 100;
+
+let writesSinceSweep = 0;
+
+function sweepExpired(now = Date.now()) {
+  for (const [key, entry] of store.entries()) {
+    if (now > entry.expiresAt) {
+      store.delete(key);
+    }
+  }
+}
+
+function enforceCapacity() {
+  while (store.size > MAX_ENTRIES) {
+    const oldestKey = store.keys().next().value;
+    if (oldestKey === undefined) break;
+    store.delete(oldestKey);
+  }
+}
 
 /**
  * Get a cached value if it exists and hasn't expired.
@@ -20,6 +40,9 @@ export function cacheGet(key) {
     store.delete(key);
     return undefined;
   }
+  // Refresh insertion order so eviction is effectively LRU.
+  store.delete(key);
+  store.set(key, entry);
   return entry.value;
 }
 
@@ -30,7 +53,17 @@ export function cacheGet(key) {
  * @param {number} [ttl] TTL in milliseconds (default 2 min)
  */
 export function cacheSet(key, value, ttl = DEFAULT_TTL) {
+  if (ttl <= 0) {
+    store.delete(key);
+    return;
+  }
   store.set(key, { value, expiresAt: Date.now() + ttl });
+  writesSinceSweep += 1;
+  if (writesSinceSweep >= SWEEP_INTERVAL_WRITES) {
+    writesSinceSweep = 0;
+    sweepExpired();
+  }
+  enforceCapacity();
 }
 
 /**

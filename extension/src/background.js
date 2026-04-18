@@ -1,6 +1,6 @@
 chrome.runtime.onInstalled.addListener(() => {
   void chrome.sidePanel.setOptions({
-    path: "dist/sidepanel.html",
+    path: "sidepanel.html",
     enabled: true,
   });
 });
@@ -10,6 +10,19 @@ chrome.action.onClicked.addListener((tab) => {
     void chrome.sidePanel.open({ windowId: tab.windowId });
   }
 });
+
+function isSafeApiUrl(url) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === "https:") return true;
+    if (parsed.protocol === "http:" && (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1")) {
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
 
 // Listen for messages from content script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -55,7 +68,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 async function ingestToBackend(payload) {
   // Read API URL and auth token from storage
   const data = await chrome.storage.local.get(["apiUrl"]);
-  const apiUrl = data.apiUrl || "http://localhost:3000";
+  const apiUrl = (data.apiUrl || "http://localhost:3000").replace(/\/+$/, "");
+  if (!isSafeApiUrl(apiUrl)) {
+    throw new Error("Unsafe API URL configuration. Use HTTPS (or localhost for local development).");
+  }
 
   // Try to get the Firebase ID token stored by the side panel auth flow
   const session = await chrome.storage.session.get(["firebaseIdToken"]);

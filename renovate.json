@@ -1,0 +1,42 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommitTypeAll(chore)"
+  ],
+  "packageRules": [
+    {
+      "description": "Auto-merge patch devDependency updates (low risk)",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["patch"],
+      "automerge": true
+    },
+    {
+      "description": "Group React ecosystem updates into one PR",
+      "groupName": "react ecosystem",
+      "matchPackageNames": ["react", "react-dom", "react-router-dom"]
+    },
+    {
+      "description": "Group Firebase updates into one PR",
+      "groupName": "firebase",
+      "matchPackageNames": ["firebase", "firebase-admin"]
+    },
+    {
+      "description": "Group Vite build tool updates into one PR",
+      "groupName": "vite ecosystem",
+      "matchPackageNames": ["vite", "@vitejs/plugin-react"]
+    },
+    {
+      "description": "Group ESLint and linting tool updates into one PR",
+      "groupName": "eslint ecosystem",
+      "matchPackageNames": [
+        "eslint",
+        "eslint-plugin-react-hooks",
+        "eslint-plugin-react-refresh",
+        "@eslint/js",
+        "globals"
+      ]
+    }
+  ]
+}

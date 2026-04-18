@@ -10,6 +10,15 @@ const __dirname = dirname(__filename);
  * Strip legacy font formats (woff, ttf) from KaTeX CSS @font-face rules.
  * Chrome supports woff2 since v36 — the other formats are dead weight in an extension.
  */
+function stripCrossOrigin() {
+  return {
+    name: "strip-crossorigin",
+    transformIndexHtml(html) {
+      return html.replace(/ crossorigin/g, "");
+    },
+  };
+}
+
 function katexWoff2Only() {
   return {
     name: "katex-woff2-only",
@@ -36,7 +45,7 @@ function katexWoff2Only() {
 
 export default defineConfig(({ mode }) => ({
   base: "./",
-  plugins: [react(), katexWoff2Only()],
+  plugins: [react(), katexWoff2Only(), stripCrossOrigin()],
   build: {
     outDir: "dist",
     emptyOutDir: true,
@@ -50,8 +59,8 @@ export default defineConfig(({ mode }) => ({
       },
       output: {
         entryFileNames: "[name].js",
-        chunkFileNames: "chunks/[name]-[hash].js",
-        assetFileNames: "assets/[name]-[hash][extname]",
+        chunkFileNames: mode === "production" ? "chunks/[name]-[hash].js" : "chunks/[name].js",
+        assetFileNames: mode === "production" ? "assets/[name]-[hash][extname]" : "assets/[name][extname]",
         manualChunks(id) {
           if (id.includes("node_modules/katex")) {
             return "katex";
