@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { randomUUID } from "node:crypto";
 import { getFirestore } from "firebase-admin/firestore";
 import { generateQuiz } from "../services/gemini.js";
 import { retrieveChunks } from "../services/rag.js";
@@ -62,7 +63,7 @@ quizRouter.post("/", requireFirebaseAuth, validate(quizGenerateSchema), async (r
 
     const qs = result.questions ?? [];
     const shuffledQs = qs.map(shuffleQuestion);
-    const sessionId = crypto.randomUUID();
+    const sessionId = randomUUID();
 
     await Promise.all([
       db.collection("users").doc(uid).collection("quizSessions").doc(sessionId).set({
@@ -73,7 +74,7 @@ quizRouter.post("/", requireFirebaseAuth, validate(quizGenerateSchema), async (r
         courseId,
         content: targetTopic,
         eventType: "quiz_generated",
-        response: result,
+        response: { topic: targetTopic, questionCount: result.questions?.length ?? 0 },
         classifierTag: { conceptNode: targetTopic, errorType: "none", confidence: 1 },
       }),
     ]);

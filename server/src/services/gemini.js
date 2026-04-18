@@ -13,7 +13,7 @@ function parseJsonResponse(text) {
   try {
     return JSON.parse(cleaned);
   } catch (e) {
-    throw new Error(`Gemini returned invalid JSON: ${e.message} | raw: ${cleaned.slice(0, 300)}`, { cause: e });
+    throw new Error(`Gemini returned invalid JSON: ${e.message} | responseLength: ${cleaned.length}`, { cause: e });
   }
 }
 

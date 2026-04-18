@@ -206,7 +206,7 @@ Return the spaced repetition drill queue for the authenticated user, ordered by 
 |---|---|---|
 | `queue` | object[] | Ordered list of concepts due for review |
 | `queue[].conceptNode` | string | snake_case concept key |
-| `queue[].urgencyScore` | number | Higher = more urgent |
+| `queue[].urgency` | number | Higher = more urgent |
 | `queue[].accuracyRate` | number | 0–1 |
 | `queue[].nextReviewDate` | string (ISO 8601) | Scheduled review date |
 
@@ -237,8 +237,9 @@ Return all SMG nodes for the authenticated user. Cached in-process for 60 second
 
 | Code | Condition |
 |---|---|
-| `404` | No SMG data exists yet for this user |
 | `401` | Missing or invalid token |
+
+Returns `200` with `{ "nodes": [] }` when the user has no SMG data yet.
 
 ---
 

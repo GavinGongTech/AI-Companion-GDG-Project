@@ -91,6 +91,7 @@ export async function recordInteraction(uid, conceptNode, { errorType, confidenc
       errorTypeMap[errorType] = (errorTypeMap[errorType] || 0) + 1;
     }
 
+    const effectiveCourseId = courseId || data.courseId || null;
     await smgRef.update({
       accuracyRate,
       correctCount,
@@ -102,12 +103,17 @@ export async function recordInteraction(uid, conceptNode, { errorType, confidenc
       nextReviewDate,
       lastInteractionAt: FieldValue.serverTimestamp(),
       lastErrorAt: isCorrect === false ? FieldValue.serverTimestamp() : (data.lastErrorAt || null),
-      courseId: courseId ?? data.courseId ?? null,
+      courseId: effectiveCourseId,
     });
     if (accuracyRate >= 0.9) {
-      db.collection("users").doc(uid).collection("gamification").doc("stats")
-        .set({ maxAccuracy: accuracyRate }, { merge: true })
-        .catch((err) => logger.warn({ err, uid, conceptNode }, 'gamification stat sync failed'));
+      const statsRef = db.collection("users").doc(uid).collection("gamification").doc("stats");
+      db.runTransaction(async (txn) => {
+        const snap = await txn.get(statsRef);
+        const current = snap.exists ? (snap.data().maxAccuracy ?? 0) : 0;
+        if (accuracyRate > current) {
+          txn.set(statsRef, { maxAccuracy: accuracyRate }, { merge: true });
+        }
+      }).catch((err) => logger.warn({ err, uid, conceptNode }, 'gamification stat sync failed'));
     }
   } else {
     // First interaction with this concept
