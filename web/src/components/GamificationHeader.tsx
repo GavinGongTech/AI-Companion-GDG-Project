@@ -45,7 +45,8 @@ export function GamificationHeader({ data }: Props) {
   const xpIntoLevel = data?.xpIntoLevel ?? 0
   const nextLevelXP = data?.nextLevelXP ?? 100
   const streak = data?.streak ?? 0
-  const pct = Math.round((xpIntoLevel / nextLevelXP) * 100)
+  const safeNext = Number.isFinite(nextLevelXP) && nextLevelXP > 0 ? nextLevelXP : 100
+  const pct = Math.max(0, Math.min(100, Math.round((xpIntoLevel / safeNext) * 100)))
 
   return (
     <motion.div

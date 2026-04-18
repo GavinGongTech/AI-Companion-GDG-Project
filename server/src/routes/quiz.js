@@ -69,15 +69,15 @@ quizRouter.post("/answer", requireFirebaseAuth, validate(quizAnswerSchema), asyn
 
     const isCorrect = selectedAnswer === correctAnswer;
 
-    // Record the interaction and update SMG — invalidate cached graph
-    cacheInvalidate(`graph:${uid}`);
-    cacheInvalidate(`drill:${uid}`);
+    // Record the interaction and update SMG, then invalidate cached graph/drill views
     await recordInteraction(uid, conceptNode, {
       errorType: isCorrect ? "none" : "knowledge_gap",
       confidence: 1,
       courseId,
       isCorrect,
     });
+    cacheInvalidate(`graph:${uid}`);
+    cacheInvalidate(`drill:${uid}`);
 
     // Save answer event
     const eventId = await saveInteraction(uid, {

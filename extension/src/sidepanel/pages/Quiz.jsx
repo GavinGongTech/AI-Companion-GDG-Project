@@ -286,68 +286,9 @@ export function Quiz() {
             >
               Try Again
             </button>
-<<<<<<< Updated upstream
-          ) : (
-            <>
-              <div className={styles.calloutBox}>
-                <p className={styles.calloutTitle}>
-                  {result.isCorrect ? "Correct!" : "Incorrect"}
-                </p>
-                <div className={styles.text}>
-                  <MathRenderer text={result.explanation} />
-                </div>
-              </div>
-              {currentIdx < questions.length - 1 ? (
-                <button
-                  className={styles.primaryButton}
-                  type="button"
-                  onClick={nextQuestion}
-                >
-                  Next Question
-                </button>
-              ) : (
-                <button
-                  className={styles.primaryButton}
-                  type="button"
-                  onClick={() => {
-                    setQuestions([]);
-                    setCurrentIdx(0);
-                  }}
-                >
-                  See Results
-                </button>
-              )}
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Results */}
-      {quizDone && (
-        <div className={styles.card}>
-          <p className={styles.cardTitle}>Quiz Complete</p>
-          <p className={styles.text}>
-            You got {score.correct} out of {score.total} correct (
-            {Math.round((score.correct / score.total) * 100)}%).
-          </p>
-          <button
-            className={styles.primaryButton}
-            type="button"
-            onClick={() => {
-              setQuestions([]);
-              setCurrentIdx(0);
-              setScore({ correct: 0, total: 0 });
-            }}
-          >
-            Try Again
-          </button>
-        </div>
-      )}
-=======
           </motion.div>
         )}
       </AnimatePresence>
->>>>>>> Stashed changes
     </div>
   );
 }

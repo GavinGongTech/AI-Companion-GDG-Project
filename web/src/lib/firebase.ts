@@ -11,7 +11,8 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
-const hasFirebaseConfig = Object.values(firebaseConfig).every(Boolean);
+const REQUIRED_KEYS = ["apiKey", "authDomain", "projectId", "appId"] as const;
+const hasFirebaseConfig = REQUIRED_KEYS.every((k) => Boolean(firebaseConfig[k]));
 
 let auth: ReturnType<typeof getAuth> | null = null;
 
