@@ -1,6 +1,7 @@
 import { app } from "./app.js";
 import { env } from "./env.js";
+import { logger } from "./logger.js";
 
 app.listen(env.port, () => {
-  console.log(`API listening on http://localhost:${env.port}`);
+  logger.info({ port: env.port }, 'Server listening')
 });

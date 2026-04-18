@@ -15,13 +15,14 @@ vi.mock("firebase-admin/app", () => ({
 
 const mockGet = vi.fn().mockResolvedValue({ exists: false });
 const mockSet = vi.fn().mockResolvedValue(undefined);
-const mockDoc = vi.fn(() => ({ get: mockGet, set: mockSet, id: "mock-id" }));
 const mockWhere = vi.fn(() => ({ orderBy: vi.fn(() => ({ limit: vi.fn(() => ({ get: vi.fn().mockResolvedValue({ empty: true, docs: [] }) })) })), get: vi.fn().mockResolvedValue({ empty: true, docs: [] }) }));
+// mockDoc supports sub-collections (e.g. users/{uid}/quizSessions/{id})
+const mockDoc = vi.fn(() => ({ get: mockGet, set: mockSet, id: "mock-id", collection: vi.fn(() => ({ doc: vi.fn(() => ({ get: mockGet, set: mockSet, id: "mock-sub-id" })) })) }));
 const mockCollection = vi.fn(() => ({ doc: mockDoc, where: mockWhere }));
 
 vi.mock("firebase-admin/firestore", () => ({
   getFirestore: vi.fn(() => ({ collection: mockCollection })),
-  FieldValue: { serverTimestamp: vi.fn(() => "MOCK_TS"), vector: vi.fn((v) => v) },
+  FieldValue: { serverTimestamp: vi.fn(() => "MOCK_TS"), vector: vi.fn((v) => v), increment: vi.fn((v) => v) },
 }));
 
 vi.mock("firebase-admin/auth", () => ({
@@ -49,12 +50,14 @@ vi.mock("../services/gemini.js", () => ({
     confidence: 0.85,
   }),
   generateQuiz: vi.fn().mockResolvedValue({
-    question: "What is the derivative of x^2?",
-    options: ["2x", "x", "x^2", "2"],
-    answer: 0,
-    explanation: "Power rule: d/dx[x^n] = nx^(n-1)",
-    difficulty: "easy",
-    conceptNode: "derivatives_power_rule",
+    questions: [{
+      question: "What is the derivative of x^2?",
+      options: ["2x", "x", "x^2", "2"],
+      answer: 0,
+      explanation: "Power rule: d/dx[x^n] = nx^(n-1)",
+      difficulty: "easy",
+      conceptNode: "derivatives_power_rule",
+    }],
   }),
 }));
 
@@ -157,10 +160,14 @@ describe("POST /api/v1/quiz", () => {
       .set("Authorization", "Bearer mock-token")
       .send({ topic: "derivatives" });
     expect(res.status).toBe(200);
-    expect(res.body).toHaveProperty("question");
-    expect(res.body).toHaveProperty("options");
-    expect(res.body.options).toHaveLength(4);
-    expect(res.body).toHaveProperty("answer");
+    // Response is always { topic, courseId, sessionId, questions: [] }
+    expect(res.body).toHaveProperty("questions");
+    expect(res.body.questions).toHaveLength(1);
+    expect(res.body.questions[0]).toHaveProperty("question");
+    expect(res.body.questions[0]).toHaveProperty("options");
+    expect(res.body.questions[0].options).toHaveLength(4);
+    // answer must NOT be in the response — server-side grading only
+    expect(res.body.questions[0]).not.toHaveProperty("answer");
   });
 
   it("validates count range", async () => {
@@ -174,12 +181,26 @@ describe("POST /api/v1/quiz", () => {
 
 describe("POST /api/v1/quiz/answer", () => {
   it("returns correctness feedback", async () => {
+    // Stub session lookup to return a stored quiz session
+    mockGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        questions: [{ index: 0, conceptNode: "derivatives_chain_rule", answer: 0 }],
+        expiresAt: Date.now() + 30 * 60 * 1000,
+      }),
+    });
     const res = await request(app)
       .post("/api/v1/quiz/answer")
       .set("Authorization", "Bearer mock-token")
-      .send({ conceptNode: "derivatives_chain_rule", selectedAnswer: 0, correctAnswer: 0 });
+      .send({
+        conceptNode: "derivatives_chain_rule",
+        selectedAnswer: 0,
+        sessionId: "00000000-0000-4000-8000-000000000001",
+        questionIndex: 0,
+      });
     expect(res.status).toBe(200);
     expect(res.body.isCorrect).toBe(true);
+    expect(res.body).toHaveProperty("correctAnswer", 0);
     expect(res.body).toHaveProperty("eventId");
   });
 
