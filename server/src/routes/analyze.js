@@ -68,7 +68,8 @@ analyzeRouter.post("/", requireFirebaseAuth, validate(analyzeSchema), async (req
     const explanation = await explainConcept(text, ragContext, null);
 
     // 3. Classify the interaction for SMG
-    const classifierTag = await classifyConcept(text, explanation.solution);
+    const rawClassifierTag = await classifyConcept(text, explanation.solution);
+    const classifierTag = normalizeClassifierTag(rawClassifierTag, explanation.mainConcept);
 
     // 4+5. Save interaction event and update SMG in parallel — independent Firestore paths
     const [eventId] = await Promise.all([
