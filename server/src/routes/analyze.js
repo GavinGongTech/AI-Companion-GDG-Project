@@ -10,6 +10,7 @@ import { analyzeSchema } from "../schemas.js";
 import { cacheInvalidate } from "../services/cache.js";
 import { addXP, updateStreak } from "../services/gamification.js";
 import { logger } from "../logger.js";
+import { shouldUseCourseRag } from "../services/ragPolicy.js";
 
 export const analyzeRouter = Router();
 
@@ -60,9 +61,10 @@ analyzeRouter.post("/", requireFirebaseAuth, validate(analyzeSchema), async (req
 
     await ensureUserDoc(uid, req.user.email, req.user.name);
 
-    // 1. Retrieve RAG context from Firestore vector search
-    const chunks = await retrieveChunks(uid, courseId, text);
-    const ragContext = chunks.join("\n\n---\n\n");
+    // 1. Retrieve RAG context from Firestore vector search (only when it makes sense)
+    const ragContext = shouldUseCourseRag(text)
+      ? (await retrieveChunks(uid, courseId, text)).join("\n\n---\n\n")
+      : "";
 
     // 2. Call Gemini for explanation with RAG context
     const explanation = await explainConcept(text, ragContext, null);

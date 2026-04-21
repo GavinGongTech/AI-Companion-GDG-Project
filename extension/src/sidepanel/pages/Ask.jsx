@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { apiFetch, apiStream } from "../lib/api";
 import { MathRenderer } from "../components/MathRenderer";
 import "katex/dist/katex.min.css";
@@ -9,13 +9,21 @@ export function Ask() {
   const [question, setQuestion] = useState("");
   const [courseId, setCourseId] = useState("");
   const [courses, setCourses] = useState([]);
+
   const [response, setResponse] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
   const [streamingText, setStreamingText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [screenshotBase64, setScreenshotBase64] = useState(null);
+  const [lastImagePreview, setLastImagePreview] = useState(null);
+
+  const [apiStatus, setApiStatus] = useState({ ok: null, detail: "" });
+  const [debugInfo, setDebugInfo] = useState(null);
+
   const readerRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   async function useSelectedText() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -31,13 +39,54 @@ export function Ask() {
   async function captureScreenshot() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.windowId) return;
+
     const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
-    // Strip the data: prefix — backend expects raw base64
-    setScreenshotBase64(dataUrl.replace(/^data:image\/\w+;base64,/, ""));
-    setQuestion("(screenshot attached — describe the math or concept shown)");
+    const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, "");
+    setScreenshotBase64(base64);
+    setLastImagePreview(dataUrl);
+
+    // Keep the user's question if they already typed one; otherwise set a helpful default.
+    setQuestion((q) => {
+      const trimmed = String(q ?? "").trim();
+      if (trimmed) return trimmed;
+      return "Describe what is shown in this screenshot.";
+    });
   }
 
-  // Pre-fill from content script's "Explain this" button
+  function handlePickImage(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setError(null);
+    setResponse(null);
+    setStreamingText("");
+    setScreenshotBase64(null);
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result || "");
+      setLastImagePreview(dataUrl);
+      const base64 = dataUrl.split(",")[1] || "";
+      if (!base64) {
+        setError("Could not read image");
+        e.target.value = "";
+        return;
+      }
+      setScreenshotBase64(base64);
+      setQuestion((q) => {
+        const trimmed = String(q ?? "").trim();
+        if (trimmed) return trimmed;
+        return "Describe what is shown in this image.";
+      });
+      e.target.value = "";
+    };
+    reader.onerror = () => {
+      setError("Could not read image file");
+      e.target.value = "";
+    };
+    reader.readAsDataURL(file);
+  }
+
   useEffect(() => {
     chrome.storage.session.get(["prefillAsk"], (data) => {
       if (data.prefillAsk) {
@@ -45,8 +94,31 @@ export function Ask() {
         chrome.storage.session.remove("prefillAsk");
       }
     });
-    // Cancel any in-flight SSE reader when the panel navigates away.
-    return () => { readerRef.current?.cancel(); };
+
+    return () => {
+      readerRef.current?.cancel?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:3000").replace(/\/+$/, "");
+    setDebugInfo((d) => ({ ...d, apiUrl: API_URL }));
+
+    fetch(`${API_URL}/health`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`Health check failed (${r.status})`))))
+      .then((data) => {
+        if (cancelled) return;
+        setApiStatus({ ok: true, detail: data?.firestore ? "ok" : "firestore unavailable" });
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setApiStatus({ ok: false, detail: e?.message || "unreachable" });
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -59,8 +131,7 @@ export function Ask() {
     e.preventDefault();
     if (!question.trim()) return;
 
-    // Cancel any previous in-flight stream before starting a new one.
-    readerRef.current?.cancel();
+    readerRef.current?.cancel?.();
     readerRef.current = null;
 
     setError(null);
@@ -69,16 +140,27 @@ export function Ask() {
 
     const trimmed = question.trim();
 
-    // If a screenshot is attached, send it directly to the batch analyze endpoint (no streaming)
+    // Image path: always use batch analyze (structured JSON), not SSE.
     if (screenshotBase64) {
       setLoading(true);
       try {
         const data = await apiFetch("/api/v1/analyze", {
           method: "POST",
-          body: JSON.stringify({ imageBase64: screenshotBase64 }),
+          body: JSON.stringify({
+            content: trimmed,
+            imageBase64: screenshotBase64,
+            courseId: courseId || undefined,
+          }),
         });
         setResponse(data);
         setScreenshotBase64(null);
+        setDebugInfo((d) => ({
+          ...d,
+          lastEventId: data?.eventId,
+          lastServerQuestion: data?.question,
+          lastClientQuestion: trimmed,
+          lastAt: new Date().toISOString(),
+        }));
       } catch (err) {
         setError(err.message);
       } finally {
@@ -87,16 +169,22 @@ export function Ask() {
       return;
     }
 
-    // Try SSE streaming first; fall back to batch analyze
+    // Text path: try SSE streaming first, then fall back to batch analyze.
     try {
-      const probe = await apiStream("/api/v1/stream/explain", { question: trimmed });
+      const probe = await apiStream("/api/v1/stream/explain", {
+        question: trimmed,
+        courseId: courseId || undefined,
+      });
+
       if (probe.ok && probe.body) {
         setIsStreaming(true);
         setStreamingText("");
+
         const reader = probe.body.getReader();
         readerRef.current = reader;
         const decoder = new TextDecoder();
         let sseBuffer = "";
+
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -110,27 +198,34 @@ export function Ask() {
                 const parsed = JSON.parse(line.slice(6));
                 if (parsed.text) setStreamingText((t) => t + parsed.text);
               } catch {
-                // skip malformed SSE event
+                // ignore malformed chunk
               }
             }
           }
         }
+
         readerRef.current = null;
         setIsStreaming(false);
         return;
       }
     } catch {
-      // streaming endpoint unavailable — fall through to batch
+      // fall through
     }
 
-    // Batch fallback
     setLoading(true);
     try {
       const data = await apiFetch("/api/v1/analyze", {
         method: "POST",
-        body: JSON.stringify({ content: trimmed }),
+        body: JSON.stringify({ content: trimmed, courseId: courseId || undefined }),
       });
       setResponse(data);
+      setDebugInfo((d) => ({
+        ...d,
+        lastEventId: data?.eventId,
+        lastServerQuestion: data?.question,
+        lastClientQuestion: trimmed,
+        lastAt: new Date().toISOString(),
+      }));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -138,7 +233,7 @@ export function Ask() {
     }
   }
 
-  const showResponse = response || streamingText;
+  const showResponse = Boolean(response || streamingText);
 
   return (
     <div className={styles.stack}>
@@ -152,6 +247,31 @@ export function Ask() {
         <h2 className={styles.h1}>What are you confused about?</h2>
         <p className={styles.text}>Any specific question you are confused on?</p>
         <p className={styles.text}>Or is there anything you wanna prioritize?</p>
+
+        <p className={styles.text} style={{ opacity: 0.8 }}>
+          API:{" "}
+          {apiStatus.ok === null
+            ? "checking…"
+            : apiStatus.ok
+              ? `connected (${apiStatus.detail})`
+              : `not reachable (${apiStatus.detail})`}
+        </p>
+        {debugInfo?.apiUrl && (
+          <p className={styles.text} style={{ opacity: 0.75 }}>
+            API base: {debugInfo.apiUrl}
+          </p>
+        )}
+        {debugInfo?.lastEventId && (
+          <p className={styles.text} style={{ opacity: 0.75 }}>
+            last eventId: {debugInfo.lastEventId} @ {debugInfo.lastAt}
+          </p>
+        )}
+        {debugInfo?.lastServerQuestion && (
+          <p className={styles.text} style={{ opacity: 0.75 }}>
+            server echoed question: {String(debugInfo.lastServerQuestion).slice(0, 200)}
+            {String(debugInfo.lastServerQuestion).length > 200 ? "…" : ""}
+          </p>
+        )}
       </motion.div>
 
       <motion.div
@@ -168,11 +288,20 @@ export function Ask() {
             className={styles.secondaryButton}
             type="button"
             onClick={captureScreenshot}
+            disabled={loading || isStreaming}
             style={screenshotBase64 ? { borderColor: "var(--accent)", color: "var(--accent)" } : {}}
           >
             {screenshotBase64 ? "Screenshot ready" : "Screenshot"}
           </button>
         </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          style={{ display: "none" }}
+          onChange={handlePickImage}
+        />
 
         <form className={styles.form} onSubmit={handleSubmit}>
           {courses.length > 0 && (
@@ -189,6 +318,7 @@ export function Ask() {
               ))}
             </select>
           )}
+
           <textarea
             className={styles.textarea}
             rows={6}
@@ -198,7 +328,12 @@ export function Ask() {
           />
 
           <div className={styles.rowBetween}>
-            <button className={styles.iconButton} type="button">
+            <button
+              className={styles.iconButton}
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={loading || isStreaming}
+            >
               +
             </button>
             <button
@@ -213,13 +348,16 @@ export function Ask() {
       </motion.div>
 
       {error && (
-        <motion.p
-          className={styles.error}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-        >
+        <motion.p className={styles.error} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           {error}
         </motion.p>
+      )}
+
+      {lastImagePreview && (
+        <div className={styles.card}>
+          <p className={styles.cardTitle}>Last image</p>
+          <img src={lastImagePreview} alt="Selected preview" style={{ width: "100%", borderRadius: 12 }} />
+        </div>
       )}
 
       <AnimatePresence>

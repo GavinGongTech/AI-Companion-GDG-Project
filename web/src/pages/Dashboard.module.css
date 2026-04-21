@@ -229,6 +229,13 @@
   max-width: 640px;
 }
 
+.ingestHint {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
 .ingestInput {
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--border-subtle);

@@ -13,7 +13,7 @@
     "service_worker": "background.js",
     "type": "module"
   },
-  "permissions": ["storage", "sidePanel", "activeTab", "scripting", "identity", "alarms"],
+  "permissions": ["storage", "sidePanel", "activeTab", "scripting", "identity", "alarms", "tabs"],
   "oauth2": {
     "client_id": "966291933098-1kofpfa4m6mc0l0i7edem7sajii0jrco.apps.googleusercontent.com",
     "scopes": ["https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"]

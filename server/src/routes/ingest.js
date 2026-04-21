@@ -1,6 +1,6 @@
 import { Router } from "express";
 import multer from "multer";
-import { unlink } from "node:fs/promises";
+import { mkdir, unlink } from "node:fs/promises";
 import { requireFirebaseAuth } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { ingestTextSchema } from "../schemas.js";
@@ -9,6 +9,7 @@ import { ensureUserDoc } from "../services/firestore.js";
 import { cacheInvalidate } from "../services/cache.js";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
+await mkdir("uploads", { recursive: true });
 const upload = multer({ dest: "uploads/", limits: { fileSize: MAX_FILE_SIZE } });
 
 export const ingestRouter = Router();

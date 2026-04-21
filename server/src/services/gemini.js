@@ -86,7 +86,12 @@ export async function explainConcept(question, context, smgHistory = null) {
     : "";
 
   const prompt = `You are an AI study companion. A student asked the following question.
-Use the course material context below to give a clear, detailed explanation.
+Use the course material context below to help when it is relevant.
+
+Rules:
+- If the question is not actually an academic/study question (e.g. greetings like "hi", small talk, random chat), answer it briefly and normally. Do NOT force-fit unrelated course material.
+- If the question is academic, prioritize answering the question directly.
+- Only lean heavily on course material context when it clearly matches the question. If context is unrelated, ignore it.
 
 COURSE MATERIAL CONTEXT:
 ${context || "No course materials available — use your general knowledge."}

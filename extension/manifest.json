@@ -18,7 +18,8 @@
     "sidePanel",
     "activeTab",
     "scripting",
-    "identity"
+    "identity",
+    "tabs"
   ],
   "oauth2": {
     "client_id": "966291933098-1kofpfa4m6mc0l0i7edem7sajii0jrco.apps.googleusercontent.com",

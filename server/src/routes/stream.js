@@ -9,6 +9,7 @@ import { saveInteraction } from '../services/firestore.js'
 import { addXP, updateStreak } from '../services/gamification.js'
 import { cacheInvalidate } from '../services/cache.js'
 import { logger } from '../logger.js'
+import { shouldUseCourseRag } from '../services/ragPolicy.js'
 
 const router = Router()
 
@@ -67,8 +68,10 @@ router.post('/explain', requireFirebaseAuth, validate(schema), async (req, res) 
     // Attempt RAG context retrieval — gracefully degrade if unavailable
     let ragContext = ''
     try {
-      const chunks = await retrieveChunks(uid, courseId, question)
-      ragContext = chunks.join('\n\n---\n\n')
+      if (shouldUseCourseRag(question)) {
+        const chunks = await retrieveChunks(uid, courseId, question)
+        ragContext = chunks.join('\n\n---\n\n')
+      }
     } catch (ragErr) {
       logger.warn({ ragErr }, 'RAG context unavailable, proceeding without context')
     }
