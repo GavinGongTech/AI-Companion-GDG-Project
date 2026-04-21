@@ -33,7 +33,15 @@ export function Ask() {
       func: () => window.getSelection().toString().trim(),
     });
     const selected = results?.[0]?.result;
-    if (selected) setQuestion(selected);
+    if (selected) {
+      setQuestion(selected);
+      return;
+    }
+    chrome.storage.session.get(["lastIngestedContent"], (data) => {
+      if (data.lastIngestedContent?.rawContent) {
+        setQuestion(data.lastIngestedContent.rawContent.slice(0, 500));
+      }
+    });
   }
 
   async function captureScreenshot() {

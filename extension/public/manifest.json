@@ -1,5 +1,6 @@
   {
   "manifest_version": 3,
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4EE/sacM3YZoPs23g+UWLx7WueNbi5xodlOy0MkMHDQdcCsR3hc+y1FQFQca3+e6DLBJ2i+6EJVtaUJ+dMAO6ndjfh6kpYRxqtWHRMIuQzh2JLxjrXTj7AQIHeNG6FsJjQauDo7M6BbqJAAOPQ8Pw/e+qGX8cbsvCj0paR9SBCvpUKrxX8pPgBGrZnqmxPgGsZOtcBYffazWDUumEwP3I5bvZY1Jz8viLt0/ppPK3gl/Ry9ijfLf1K3KpQdpglWaETtOsRtiSlpecBt5OGow/rIoDMOJX0bGkI4fqpV3oLsVQ3yYRoR+lkeCfsP5mQS8Pe8MDUIQJW2gnwIBUFwftwIDAQAB",
   "name": "Study Flow",
   "version": "0.0.1",
   "description": "Contextual math study assistant — Ask, Quiz, and course-aware help.",

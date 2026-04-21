@@ -1,16 +1,9 @@
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
-import { EASE } from "../lib/motion";
 import styles from "./AuthPages.module.css";
 
 export function Download() {
   return (
-    <motion.div
-      className={styles.wrap}
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: EASE }}
-    >
+    <div className={styles.wrap}>
       <div className={styles.card}>
         <p className={styles.eyebrow}>Chrome · Manifest V3</p>
         <h1 className={styles.title}>Install Study Flow</h1>
@@ -43,6 +36,6 @@ export function Download() {
           ← Back to home
         </Link>
       </div>
-    </motion.div>
+    </div>
   );
 }

@@ -1,12 +1,10 @@
-import { useState, FormEvent } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   signInWithEmailAndPassword,
   signInWithPopup,
   GoogleAuthProvider,
 } from "firebase/auth";
-import { motion } from "framer-motion";
-import { EASE } from "../lib/motion";
 import { auth, hasFirebaseConfig } from "../lib/firebase";
 import styles from "./AuthPages.module.css";
 import { apiFetch } from "../lib/api";
@@ -15,12 +13,12 @@ const googleProvider = new GoogleAuthProvider();
 
 export function Login() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState<string>("");
-  const [password, setPassword] = useState<string>("");
-  const [error, setError] = useState<string>("");
-  const [loading, setLoading] = useState<boolean>(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  async function onSubmit(e: FormEvent<HTMLFormElement>) {
+  async function onSubmit(e) {
     e.preventDefault();
     if (!hasFirebaseConfig || !auth) {
       setError("Firebase is not configured yet. Add web/.env.local to test sign-in.");
@@ -41,8 +39,8 @@ export function Login() {
         }),
       }).catch(() => {});
       navigate("/dashboard");
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Sign-in failed.");
+    } catch (err) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -68,20 +66,15 @@ export function Login() {
         }),
       }).catch(() => {});
       navigate("/dashboard");
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Google sign-in failed.");
+    } catch (err) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <motion.div
-      className={styles.wrap}
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: EASE }}
-    >
+    <div className={styles.wrap}>
       <div className={styles.card}>
         <p className={styles.eyebrow}>Welcome back</p>
         <h1 className={styles.title}>Log in</h1>
@@ -145,6 +138,6 @@ export function Login() {
           ← Back to home
         </Link>
       </div>
-    </motion.div>
+    </div>
   );
 }

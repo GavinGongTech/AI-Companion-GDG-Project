@@ -8,8 +8,9 @@ import { ai } from "./gemini.js";
  */
 export async function embed(text) {
   const result = await ai.models.embedContent({
-    model: "text-embedding-004",
+    model: "gemini-embedding-001",
     contents: text,
+    config: { outputDimensionality: 768 }
   });
   return result.embeddings[0].values;
 }
@@ -22,8 +23,9 @@ export async function embed(text) {
  */
 export async function embedBatch(texts) {
   const result = await ai.models.embedContent({
-    model: "text-embedding-004",
+    model: "gemini-embedding-001",
     contents: texts,
+    config: { outputDimensionality: 768 }
   });
   return result.embeddings.map((e) => e.values);
 }

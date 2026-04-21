@@ -25,7 +25,7 @@ export default function App() {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <Suspense fallback={<div style={{ padding: "2rem", textAlign: "center", color: "var(--text-muted)" }}>Loading...</div>}>
+              <Suspense fallback={<div style={{ padding: "2rem", textAlign: "center", color: "#8b97a8" }}>Loading dashboard...</div>}>
                 <Dashboard />
               </Suspense>
             </ProtectedRoute>

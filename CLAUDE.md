@@ -36,7 +36,7 @@ Health check: `curl http://localhost:3000/health`
 - `GEMINI_API_KEY` — Gemini API key
 - `GOOGLE_APPLICATION_CREDENTIALS` — path to Firebase service account JSON
 - `FIREBASE_PROJECT_ID`
-- `GEMINI_MODEL` — optional override; defaults to `gemini-2.0-flash-exp`. **Never change the default without web-searching first** — the model list changes faster than training cutoffs.
+- `GEMINI_MODEL` — optional override; defaults to `gemini-3.1-pro-preview`. **Never change the default without web-searching first** — the model list changes faster than training cutoffs.
 
 `web/.env.local` and `extension/.env`: `VITE_FIREBASE_*` keys + `VITE_API_URL`.
 
