@@ -1,22 +1,24 @@
-import { useState } from "react";
+import { useState, FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   createUserWithEmailAndPassword,
   updateProfile,
 } from "firebase/auth";
+import { motion } from "framer-motion";
+import { EASE } from "../lib/motion";
 import { auth, hasFirebaseConfig } from "../lib/firebase";
 import styles from "./AuthPages.module.css";
 import { apiFetch } from "../lib/api";
 
 export function SignUp() {
   const navigate = useNavigate();
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [name, setName] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [error, setError] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
 
-  async function onSubmit(e) {
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!hasFirebaseConfig || !auth) {
       setError("Firebase is not configured yet. Add web/.env.local to test account creation.");
@@ -42,20 +44,25 @@ export function SignUp() {
         }),
       }).catch(() => {});
       navigate("/welcome");
-    } catch (err) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Account creation failed.");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className={styles.wrap}>
+    <motion.div
+      className={styles.wrap}
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: EASE }}
+    >
       <div className={styles.card}>
         <p className={styles.eyebrow}>New student</p>
         <h1 className={styles.title}>Create your account</h1>
         <p className={styles.lede}>
-          We’ll build your misconception graph as you study. You can connect
+          We'll build your misconception graph as you study. You can connect
           your courses after signup for auto-ingestion.
         </p>
         {error && <p className={styles.error}>{error}</p>}
@@ -118,6 +125,6 @@ export function SignUp() {
           ← Back to home
         </Link>
       </div>
-    </div>
+    </motion.div>
   );
 }

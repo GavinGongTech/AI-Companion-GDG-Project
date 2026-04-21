@@ -68,7 +68,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 async function ingestToBackend(payload) {
   // Read API URL and auth token from storage
   const data = await chrome.storage.local.get(["apiUrl"]);
-  const apiUrl = (data.apiUrl || "http://localhost:3000").replace(/\/+$/, "");
+  // Priority: runtime-configured URL > build-time env var > dev default
+  const apiUrl = (data.apiUrl || import.meta.env.VITE_API_URL || "http://localhost:3000").replace(/\/+$/, "");
   if (!isSafeApiUrl(apiUrl)) {
     throw new Error("Unsafe API URL configuration. Use HTTPS (or localhost for local development).");
   }
