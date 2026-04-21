@@ -2,76 +2,73 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: var(--bg-base);
+  background: var(--bg-deep);
+}
+
+.bgGrid {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.75), transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), transparent 30%);
+  pointer-events: none;
+}
+
+.bgGlow {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(960px, 100vw);
+  height: 240px;
+  background: radial-gradient(ellipse at center, rgba(229, 231, 235, 0.85) 0%, transparent 70%);
+  pointer-events: none;
 }
 
 .header {
   position: sticky;
   top: 0;
-  z-index: 50;
+  z-index: 10;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-s) var(--space-l);
-  background: light-dark(
-    oklch(0.985 0 0 / 0.88),
-    oklch(0.08 0.006 260 / 0.88)
-  );
-  backdrop-filter: blur(20px) saturate(1.4);
-  -webkit-backdrop-filter: blur(20px) saturate(1.4);
-  border-bottom: 1px solid var(--border-default);
+  padding: 1rem clamp(1.25rem, 4vw, 2.5rem);
+  border-bottom: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
 }
 
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.6rem;
-  font-weight: 700;
+  gap: 0.65rem;
+  font-weight: 600;
   letter-spacing: -0.02em;
-  text-decoration: none;
 }
 
 .brandMark {
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
-  background: var(--accent);
-  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: var(--text-primary);
 }
 
 .brandText {
-  font-family: var(--font-display);
-  font-size: var(--step-0);
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: -0.03em;
+  font-size: 1.05rem;
 }
 
 .nav {
   display: flex;
   align-items: center;
-  gap: 0.2rem;
-}
-
-.navIndicatorWrap {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  gap: 0.35rem;
 }
 
 .navLink {
-  position: relative;
-  padding: 0.45rem 0.8rem;
+  padding: 0.5rem 0.85rem;
   border-radius: var(--radius-pill);
-  font-size: var(--step--1);
-  color: var(--text-secondary);
-  text-decoration: none;
-  transition: color 0.15s ease, background 0.15s ease;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
+  font-size: 0.92rem;
+  color: var(--text-muted);
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
 .navLink:hover {
@@ -81,38 +78,25 @@
 
 .navActive {
   color: var(--text-primary);
+  background: var(--accent-dim);
   font-weight: 600;
 }
 
-.navIndicator {
-  display: block;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--accent);
-}
-
-/* Primary nav CTA — inverted, no glow */
 .cta {
-  margin-left: 0.5rem;
-  padding: 0.45rem 1rem;
+  margin-left: 0.35rem;
+  padding: 0.5rem 1rem;
   border-radius: var(--radius-pill);
-  font-size: var(--step--1);
+  font-size: 0.92rem;
   font-weight: 600;
-  font-family: inherit;
   border: none;
-  color: light-dark(#fff, #fff);
-  background: var(--text-primary);
-  cursor: pointer;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  color: var(--bg-base);
-  transition: opacity 0.15s ease;
+  color: #ffffff;
+  background: var(--accent);
+  transition: transform 0.15s ease, opacity 0.15s ease;
 }
 
 .cta:hover {
-  opacity: 0.8;
+  opacity: 0.92;
+  transform: translateY(-1px);
 }
 
 .main {
@@ -122,23 +106,21 @@
 }
 
 .footer {
-  padding: var(--space-xl) var(--space-l) var(--space-2xl);
-  border-top: 1px solid var(--border-default);
-  max-width: 1200px;
-  margin: 0 auto;
-  width: 100%;
+  position: relative;
+  padding: 2rem clamp(1.25rem, 4vw, 2.5rem) 2.5rem;
+  border-top: 1px solid var(--border-subtle);
 }
 
 .footerNote {
   margin: 0;
   max-width: 52ch;
-  font-size: var(--step--1);
-  color: var(--text-tertiary);
+  font-size: 0.85rem;
+  color: var(--text-muted);
   line-height: 1.5;
 }
 
 @media (max-width: 640px) {
-  .nav .navIndicatorWrap:first-of-type {
+  .nav .navLink:first-of-type {
     display: none;
   }
 }

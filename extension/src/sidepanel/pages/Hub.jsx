@@ -1,64 +1,33 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
 import { apiFetch } from "../lib/api";
 import styles from "./Pages.module.css";
-
-const ACTION_CARDS = [
-  { to: "/ask", label: "Ask", icon: "?" },
-  { to: "/quiz", label: "Quiz", icon: "✦" },
-];
 
 export function Hub() {
   const [queue, setQueue] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [queueError, setQueueError] = useState(null);
 
   useEffect(() => {
     apiFetch("/api/v1/quiz/queue")
       .then((data) => setQueue(data.queue?.slice(0, 5) || []))
-      .catch((err) => setQueueError(err.message))
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
   return (
-    <motion.div
-      className={styles.stack}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.22 }}
-    >
-      <motion.div
-        className={styles.section}
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0, duration: 0.22 }}
-      >
+    <div className={styles.stack}>
+      <div className={styles.section}>
         <p className={styles.eyebrow}>pick mode</p>
-      </motion.div>
+      </div>
 
-      <motion.div
-        className={styles.card}
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.06, duration: 0.22 }}
-      >
+      <div className={styles.card}>
         <div className={styles.homeModeRow}>
-          {ACTION_CARDS.map(({ to, label }, i) => (
-            <motion.div
-              key={to}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.08 + 0.1, duration: 0.22 }}
-              whileHover={{ scale: 1.03, y: -2 }}
-              whileTap={{ scale: 0.97 }}
-              style={{ flex: 1 }}
-            >
-              <Link to={to} className={styles.modeButton}>
-                {label}
-              </Link>
-            </motion.div>
-          ))}
+          <Link to="/ask" className={styles.modeButton}>
+            Ask
+          </Link>
+          <Link to="/quiz" className={styles.modeButton}>
+            Quiz
+          </Link>
         </div>
 
         <div className={styles.recommendBlock}>
@@ -68,22 +37,14 @@ export function Hub() {
               <div className={styles.center} style={{ minHeight: "10vh" }}>
                 <div className={styles.spinner} aria-hidden />
               </div>
-            ) : queueError ? (
-              <p className={styles.error}>{queueError}</p>
             ) : queue.length > 0 ? (
-              queue.map((item, i) => (
-                <motion.div
-                  key={item.conceptNode}
-                  className={styles.topicItem}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.06 + 0.24, duration: 0.18 }}
-                >
+              queue.map((item) => (
+                <div key={item.conceptNode} className={styles.topicItem}>
                   {item.conceptNode.replace(/_/g, " ")}{" "}
                   <span style={{ color: "var(--text-muted)", fontSize: "0.72rem" }}>
                     ({Math.round((item.accuracyRate || 0) * 100)}% accuracy)
                   </span>
-                </motion.div>
+                </div>
               ))
             ) : (
               <p className={styles.muted}>
@@ -92,7 +53,7 @@ export function Hub() {
             )}
           </div>
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }
