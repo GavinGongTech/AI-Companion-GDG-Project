@@ -22,7 +22,8 @@ export const quizGenerateSchema = z.object({
 export const quizAnswerSchema = z.object({
   conceptNode: z.string().trim().min(1).max(200),
   selectedAnswer: z.number().int().min(0).max(9),
-  correctAnswer: z.number().int().min(0).max(9),
+  sessionId: z.string().uuid(),
+  questionIndex: z.number().int().min(0).max(9),
   courseId: z.string().trim().max(100).optional(),
 });
 

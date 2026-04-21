@@ -1,5 +1,4 @@
 import { embed } from "./embeddings.js";
-import { explainConcept } from "./gemini.js";
 import { db } from "../db/firebase.js";
 
 const TOP_K = 5;
@@ -18,7 +17,8 @@ function cosineSimilarity(a, b) {
     magA += a[i] * a[i];
     magB += b[i] * b[i];
   }
-  return dot / (Math.sqrt(magA) * Math.sqrt(magB));
+  const denominator = Math.sqrt(magA) * Math.sqrt(magB);
+  return denominator === 0 ? 0 : dot / denominator;
 }
 
 /**
@@ -43,12 +43,15 @@ export async function retrieveChunks(uid, courseId, question) {
     const coursesSnap = await db.collection("users").doc(uid)
       .collection("courses").get();
 
+    const courseSnaps = await Promise.all(
+      coursesSnap.docs.map((courseDoc) => courseDoc.ref.collection("chunks").get())
+    );
+
     const allChunks = [];
-    for (const courseDoc of coursesSnap.docs) {
-      const snap = await courseDoc.ref.collection("chunks").get();
+    for (const snap of courseSnaps) {
       for (const chunkDoc of snap.docs) {
         const data = chunkDoc.data();
-        if (data.embedding) {
+        if (data.embedding && data.content) {
           const vec = data.embedding.toArray ? data.embedding.toArray() : data.embedding;
           allChunks.push({
             content: data.content,
@@ -88,17 +91,3 @@ export async function getCourseFileURIs(uid, courseId) {
     .filter((uri) => uri && !uri.startsWith("local://"));
 }
 
-/**
- * Full RAG pipeline: embed query → vector search → Gemini generation.
- *
- * @param {string} question
- * @param {string} uid
- * @param {string} [courseId]
- * @returns {Promise<{ question: string, solution: string, mainConcept: string, relevantLecture: string }>}
- */
-export async function query(question, uid, courseId) {
-  const chunks = await retrieveChunks(uid, courseId, question);
-  const context = chunks.join("\n\n---\n\n");
-  const result = await explainConcept(question, context);
-  return { question, ...result };
-}

@@ -9,6 +9,8 @@ dist
 *serviceaccount*.json
 uploads/
 package-lock.json
-
-# Windows NTFS metadata
-*:Zone.Identifier
+coverage/
+.claude/
+.codex
+serve
+*.Zone.Identifier

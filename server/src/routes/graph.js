@@ -20,7 +20,7 @@ graphRouter.get("/", requireFirebaseAuth, async (req, res, next) => {
     const nodes = await getGraph(uid);
 
     if (nodes.length === 0) {
-      return res.status(404).json({ error: "No SMG data yet — start studying!" });
+      return res.json({ nodes: [] });
     }
 
     const body = { nodes };

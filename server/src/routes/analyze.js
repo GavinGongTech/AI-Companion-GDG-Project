@@ -8,8 +8,9 @@ import { requireFirebaseAuth } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { analyzeSchema } from "../schemas.js";
 import { cacheInvalidate } from "../services/cache.js";
+import { addXP, updateStreak } from "../services/gamification.js";
+import { logger } from "../logger.js";
 
-//this is API endpoint that runs analyze flow
 export const analyzeRouter = Router();
 
 const ALLOWED_ERROR_TYPES = new Set([
@@ -63,43 +64,40 @@ analyzeRouter.post("/", requireFirebaseAuth, validate(analyzeSchema), async (req
     const chunks = await retrieveChunks(uid, courseId, text);
     const ragContext = chunks.join("\n\n---\n\n");
 
-    // 2. Check if we have prior SMG data for concept-aware response
-    let smgHistory = null;
-    // We don't know the concept node yet, so we'll skip SMG history for the initial call
-    // and use it on subsequent calls once the concept is classified
+    // 2. Call Gemini for explanation with RAG context
+    const explanation = await explainConcept(text, ragContext, null);
 
-    // 3. Call Gemini for explanation with RAG context
-    const explanation = await explainConcept(text, ragContext, smgHistory);
-
-    // 4. Classify the interaction for SMG
+    // 3. Classify the interaction for SMG
     const rawClassifierTag = await classifyConcept(text, explanation.solution);
     const classifierTag = normalizeClassifierTag(rawClassifierTag, explanation.mainConcept);
 
-    // 5. Save event to Firestore
-    const eventId = await saveInteraction(uid, {
-      courseId,
-      content: text,
-      eventType: "explain",
-      response: explanation,
-      classifierTag,
-      requestMeta: {
-        path: req.originalUrl,
-        method: req.method,
-        ip: req.ip,
-        userAgent: req.headers["user-agent"] || null,
-      },
-    });
-
-    // 6. Update SMG via SM-2 scheduling, then invalidate cached graph/drill views
-    await recordInteraction(uid, classifierTag.conceptNode, {
-      errorType: classifierTag.errorType,
-      confidence: classifierTag.confidence,
-      courseId,
-    });
+    // 4+5. Save interaction event and update SMG in parallel — independent Firestore paths
+    const [eventId] = await Promise.all([
+      saveInteraction(uid, {
+        courseId,
+        content: text,
+        eventType: "explain",
+        response: explanation,
+        classifierTag,
+        requestMeta: {
+          path: req.originalUrl,
+          method: req.method,
+          ip: req.ip,
+          userAgent: req.headers["user-agent"] || null,
+        },
+      }),
+      recordInteraction(uid, classifierTag.conceptNode, {
+        errorType: classifierTag.errorType,
+        confidence: classifierTag.confidence,
+        courseId,
+      }),
+    ]);
     cacheInvalidate(`graph:${uid}`);
     cacheInvalidate(`drill:${uid}`);
 
-    // 7. Return structured response
+    addXP(uid, 5, 'explain').catch((err) => logger.warn({ err, uid }, 'addXP failed'));
+    updateStreak(uid).catch((err) => logger.warn({ err, uid }, 'updateStreak failed'));
+
     res.json({
       question: text,
       solution: explanation.solution,

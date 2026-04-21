@@ -6,6 +6,8 @@ import { analyzeRouter } from "./analyze.js";
 import { graphRouter } from "./graph.js";
 import { courseRouter } from "./course.js";
 import { eventsRouter } from "./events.js";
+import { streamRouter } from "./stream.js";
+import { gamificationRouter } from "./gamification.js";
 
 export const apiRouter = Router();
 
@@ -16,3 +18,5 @@ apiRouter.use("/ingest", ingestRouter);
 apiRouter.use("/graph", graphRouter);
 apiRouter.use("/courses", courseRouter);
 apiRouter.use("/events", eventsRouter);
+apiRouter.use("/stream", streamRouter);
+apiRouter.use("/gamification", gamificationRouter);

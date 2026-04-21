@@ -1,3 +1,5 @@
+import { logger } from '../logger.js'
+
 /**
  * Global Express error handler. Must be registered as the last middleware in index.js.
  * Usage: app.use(errorHandler);
@@ -8,7 +10,7 @@ export function errorHandler(err, req, res, next) {
   const message = err.message ?? "Internal server error";
 
   if (status >= 500) {
-    console.error("[error]", err);
+    logger.error({ err, path: req.path, method: req.method }, 'Unhandled error');
   }
 
   const clientMessage = status >= 500 ? "Internal server error" : message;
