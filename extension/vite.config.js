@@ -2,9 +2,26 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
+import { exec } from "child_process";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+function zipExtension() {
+  return {
+    name: "zip-extension",
+    closeBundle() {
+      console.log("Zipping extension...");
+      exec("mkdir -p ../web/public/downloads && cd dist && zip -r ../../web/public/downloads/study-flow-extension.zip .", (err, stdout, stderr) => {
+        if (err) {
+          console.error("Failed to zip extension:", err);
+          return;
+        }
+        console.log("Extension zipped successfully to web/public/downloads/study-flow-extension.zip");
+      });
+    }
+  };
+}
 
 /**
  * Strip legacy font formats (woff, ttf) from KaTeX CSS @font-face rules.
@@ -45,7 +62,7 @@ function katexWoff2Only() {
 
 export default defineConfig(({ mode }) => ({
   base: "./",
-  plugins: [react(), katexWoff2Only(), stripCrossOrigin()],
+  plugins: [react(), katexWoff2Only(), stripCrossOrigin(), zipExtension()],
   build: {
     outDir: "dist",
     emptyOutDir: true,
