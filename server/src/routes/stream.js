@@ -65,10 +65,11 @@ router.post('/explain', requireFirebaseAuth, validate(schema), async (req, res) 
   let fullAnswer = ''
 
   try {
-    // Attempt RAG context retrieval — gracefully degrade if unavailable
+    // Attempt RAG context retrieval — gracefully degrade if unavailable.
+    // If no courseId is selected, avoid cross-course nearest-neighbor matches.
     let ragContext = ''
     try {
-      if (shouldUseCourseRag(question)) {
+      if (courseId && shouldUseCourseRag(question)) {
         const chunks = await retrieveChunks(uid, courseId, question)
         ragContext = chunks.join('\n\n---\n\n')
       }

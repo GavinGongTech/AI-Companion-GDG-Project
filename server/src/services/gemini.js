@@ -4,6 +4,40 @@ import { env } from "../env.js";
 const PRIMARY_MODEL = env.geminiModel;
 const FAST_MODEL = env.geminiFastModel;
 
+function isQuotaError(err) {
+  const msg = String(err?.message || "");
+  const code = err?.status || err?.code;
+  return (
+    code === 429 ||
+    code === "RESOURCE_EXHAUSTED" ||
+    msg.includes("RESOURCE_EXHAUSTED") ||
+    msg.includes("Quota exceeded") ||
+    msg.includes("exceeded your current quota")
+  );
+}
+
+async function generateContentWithFallback({ model, ...rest }) {
+  try {
+    return await ai.models.generateContent({ model, ...rest });
+  } catch (err) {
+    if (model !== FAST_MODEL && isQuotaError(err)) {
+      return await ai.models.generateContent({ model: FAST_MODEL, ...rest });
+    }
+    throw err;
+  }
+}
+
+async function generateContentStreamWithFallback({ model, ...rest }) {
+  try {
+    return await ai.models.generateContentStream({ model, ...rest });
+  } catch (err) {
+    if (model !== FAST_MODEL && isQuotaError(err)) {
+      return await ai.models.generateContentStream({ model: FAST_MODEL, ...rest });
+    }
+    throw err;
+  }
+}
+
 /**
  * Parse JSON from Gemini response text with retry.
  * Gemini sometimes wraps JSON in markdown fences — strip them before parsing.
@@ -59,7 +93,7 @@ Respond with ONLY a JSON object:
   "confidence": <number between 0 and 1>
 }`;
 
-  const result = await ai.models.generateContent({
+  const result = await generateContentWithFallback({
     model: FAST_MODEL,
     contents: prompt,
     config: {
@@ -109,7 +143,7 @@ Respond with ONLY a JSON object:
   "personalizedCallout": "<a personalized note based on the student's history, or empty string if no history>"
 }`;
 
-  const result = await ai.models.generateContent({
+  const result = await generateContentWithFallback({
     model: PRIMARY_MODEL,
     contents: prompt,
     config: {
@@ -171,7 +205,7 @@ Respond with ONLY a JSON object:
   ]
 }`;
 
-  const result = await ai.models.generateContent({
+  const result = await generateContentWithFallback({
     model: PRIMARY_MODEL,
     contents: prompt,
     config: {
@@ -207,7 +241,7 @@ STUDENT QUESTION: ${question}
 
 Give a clear, step-by-step explanation. Highlight key formulas. Be concise but thorough.`
 
-  const stream = await ai.models.generateContentStream({
+  const stream = await generateContentStreamWithFallback({
     model: PRIMARY_MODEL,
     contents: prompt,
     config: { temperature: 0.4 },

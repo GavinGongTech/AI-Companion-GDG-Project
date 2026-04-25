@@ -47,6 +47,7 @@ export function Ask() {
   const [capturingShot, setCapturingShot] = useState(false);
 
   const readerRef = useRef(null);
+  const streamAbortRef = useRef(null);
   const fileInputRef = useRef(null);
   const feedbackTimerRef = useRef(null);
 
@@ -268,6 +269,7 @@ export function Ask() {
 
     return () => {
       readerRef.current?.cancel?.();
+      streamAbortRef.current?.abort();
     };
   }, []);
 
@@ -283,6 +285,7 @@ export function Ask() {
 
     readerRef.current?.cancel?.();
     readerRef.current = null;
+    streamAbortRef.current?.abort();
 
     setError(null);
     setFeedback(null);
@@ -314,47 +317,76 @@ export function Ask() {
       return;
     }
 
-    // Text path: try SSE streaming first, then fall back to batch analyze.
-    try {
-      const probe = await apiStream("/api/v1/stream/explain", {
-        question: trimmed,
-        courseId: courseId || undefined,
-      });
+    // Text path: try SSE first with cancellation; only fall back to batch when stream is "missing" (404/405), not on 4xx/5xx quota or server errors.
+    streamAbortRef.current?.abort();
+    const ac = new AbortController();
+    streamAbortRef.current = ac;
 
-      if (probe.ok && probe.body) {
+    setLoading(true);
+    let fallBackToBatch = false;
+    try {
+      const res = await apiStream(
+        "/api/v1/stream/explain",
+        { question: trimmed, courseId: courseId || undefined },
+        { signal: ac.signal },
+      );
+
+      if (res.ok && res.body) {
+        setLoading(false);
         setIsStreaming(true);
         setStreamingText("");
 
-        const reader = probe.body.getReader();
+        const reader = res.body.getReader();
         readerRef.current = reader;
         const decoder = new TextDecoder();
         let sseBuffer = "";
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          sseBuffer += decoder.decode(value, { stream: true });
-          const events = sseBuffer.split("\n\n");
-          sseBuffer = events.pop() ?? "";
-          for (const event of events) {
-            const line = event.trim();
-            if (line.startsWith("data: ") && line !== "data: [DONE]") {
-              try {
-                const parsed = JSON.parse(line.slice(6));
-                if (parsed.text) setStreamingText((t) => t + parsed.text);
-              } catch {
-                // ignore malformed chunk
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            sseBuffer += decoder.decode(value, { stream: true });
+            const events = sseBuffer.split("\n\n");
+            sseBuffer = events.pop() ?? "";
+            for (const event of events) {
+              const line = event.trim();
+              if (line.startsWith("data: ") && line !== "data: [DONE]") {
+                try {
+                  const parsed = JSON.parse(line.slice(6));
+                  if (parsed.text) setStreamingText((t) => t + parsed.text);
+                } catch {
+                  // ignore malformed chunk
+                }
               }
             }
           }
+        } finally {
+          readerRef.current = null;
+          setIsStreaming(false);
         }
-
-        readerRef.current = null;
-        setIsStreaming(false);
         return;
       }
-    } catch {
-      // fall through
+
+      const errText = await res.text().catch(() => "");
+      if (res.status === 404 || res.status === 405) {
+        fallBackToBatch = true;
+      } else {
+        setError(errText || `Stream failed (${res.status})`);
+        return;
+      }
+    } catch (err) {
+      if (err?.name === "AbortError") {
+        return;
+      }
+      setError(err?.message || "Stream request failed");
+      return;
+    } finally {
+      if (!fallBackToBatch) {
+        setLoading(false);
+      }
+    }
+
+    if (!fallBackToBatch) {
+      return;
     }
 
     setLoading(true);

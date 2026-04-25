@@ -100,14 +100,22 @@ export async function apiFetchWithToken(path, idToken, options = {}) {
   return res.json();
 }
 
-export async function apiStream(path, body) {
+/**
+ * POST to a streaming endpoint. Pass `{ signal }` from AbortController to cancel in flight
+ * (matches reader.cancel() on the response body).
+ */
+export async function apiStream(path, body, options = {}) {
+  const { signal, ...fetchInit } = options;
   try {
     return await fetch(`${API_URL}${path}`, {
       method: "POST",
       headers: await buildAuthHeaders(),
       body: JSON.stringify(body),
+      signal,
+      ...fetchInit,
     });
   } catch (err) {
+    if (err?.name === "AbortError") throw err;
     throw new Error(mapNetworkError(err), { cause: err });
   }
 }

@@ -61,8 +61,10 @@ analyzeRouter.post("/", requireFirebaseAuth, validate(analyzeSchema), async (req
 
     await ensureUserDoc(uid, req.user.email, req.user.name);
 
-    // 1. Retrieve RAG context from Firestore vector search (only when it makes sense)
-    const ragContext = shouldUseCourseRag(text)
+    // 1. Retrieve RAG context from Firestore vector search (only when it makes sense).
+    // If the client didn't choose a course, avoid cross-course nearest-neighbor matches
+    // (this is what makes vague prompts look like a "static" calculus template).
+    const ragContext = shouldUseCourseRag(text) && courseId
       ? (await retrieveChunks(uid, courseId, text)).join("\n\n---\n\n")
       : "";
 
