@@ -22,10 +22,18 @@ export function Hub() {
 
       <div className={styles.card}>
         <div className={styles.homeModeRow}>
-          <Link to="/ask" className={styles.modeButton}>
+          <Link
+            to="/ask"
+            className={styles.modeButton}
+            title="Ask the AI about your course. Pull in selected text or screenshots from the page behind this panel."
+          >
             Ask
           </Link>
-          <Link to="/quiz" className={styles.modeButton}>
+          <Link
+            to="/quiz"
+            className={styles.modeButton}
+            title="Practice with auto-generated quiz questions tied to your weakest concepts."
+          >
             Quiz
           </Link>
         </div>

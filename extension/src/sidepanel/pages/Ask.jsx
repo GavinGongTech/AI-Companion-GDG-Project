@@ -1,9 +1,33 @@
-import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch, apiStream } from "../lib/api";
 import { MathRenderer } from "../components/MathRenderer";
 import "katex/dist/katex.min.css";
 import styles from "./Pages.module.css";
+
+const TITLE_USE_SELECTION =
+  "Copies highlighted text from the active tab behind this panel (includes many PDF iframes). Select text on the page, then click.";
+
+const TITLE_SCREENSHOT =
+  "Captures the visible tab as an image and attaches it to your question. Click the tab you want first, then click here.";
+
+const TITLE_UPLOAD = "Attach a photo or image file from your computer.";
+
+const TITLE_SUBMIT = "Send your question (and image, if any) to Study Flow.";
+
+/** Pages where Chrome blocks screenshots and script injection. */
+function isRestrictedBrowserPage(url) {
+  if (!url || typeof url !== "string") return false;
+  const u = url.trim().toLowerCase();
+  return (
+    u.startsWith("chrome://") ||
+    u.startsWith("edge://") ||
+    u.startsWith("about:") ||
+    u.startsWith("devtools://") ||
+    u.startsWith("chrome-extension://") ||
+    u.startsWith("https://chromewebstore.google.com/") ||
+    u.startsWith("https://chrome.google.com/webstore")
+  );
+}
 
 export function Ask() {
   const [question, setQuestion] = useState("");
@@ -18,47 +42,185 @@ export function Ask() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [screenshotBase64, setScreenshotBase64] = useState(null);
   const [lastImagePreview, setLastImagePreview] = useState(null);
-
-  const [apiStatus, setApiStatus] = useState({ ok: null, detail: "" });
-  const [debugInfo, setDebugInfo] = useState(null);
+  const [feedback, setFeedback] = useState(null);
+  const [grabbingText, setGrabbingText] = useState(false);
+  const [capturingShot, setCapturingShot] = useState(false);
 
   const readerRef = useRef(null);
   const fileInputRef = useRef(null);
+  const feedbackTimerRef = useRef(null);
 
-  async function useSelectedText() {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.id) return;
-    const results = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: () => window.getSelection().toString().trim(),
-    });
-    const selected = results?.[0]?.result;
-    if (selected) {
-      setQuestion(selected);
-      return;
+  const showFeedback = useCallback((message) => {
+    if (feedbackTimerRef.current) {
+      clearTimeout(feedbackTimerRef.current);
+      feedbackTimerRef.current = null;
     }
-    chrome.storage.session.get(["lastIngestedContent"], (data) => {
-      if (data.lastIngestedContent?.rawContent) {
-        setQuestion(data.lastIngestedContent.rawContent.slice(0, 500));
-      }
+    setFeedback(message);
+    setError(null);
+    feedbackTimerRef.current = setTimeout(() => {
+      setFeedback(null);
+      feedbackTimerRef.current = null;
+    }, 4500);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+    },
+    [],
+  );
+
+  function tabsQuery(queryInfo) {
+    return new Promise((resolve, reject) => {
+      chrome.tabs.query(queryInfo, (tabs) => {
+        const err = chrome?.runtime?.lastError;
+        if (err) reject(new Error(err.message));
+        else resolve(tabs);
+      });
     });
   }
 
-  async function captureScreenshot() {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.windowId) return;
-
-    const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
-    const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, "");
-    setScreenshotBase64(base64);
-    setLastImagePreview(dataUrl);
-
-    // Keep the user's question if they already typed one; otherwise set a helpful default.
-    setQuestion((q) => {
-      const trimmed = String(q ?? "").trim();
-      if (trimmed) return trimmed;
-      return "Describe what is shown in this screenshot.";
+  function captureVisibleTab(windowId, options) {
+    return new Promise((resolve, reject) => {
+      chrome.tabs.captureVisibleTab(windowId, options, (dataUrl) => {
+        const err = chrome?.runtime?.lastError;
+        if (err) reject(new Error(err.message));
+        else resolve(dataUrl);
+      });
     });
+  }
+
+  /**
+   * Reads the user's text selection from the active tab, including iframes.
+   * Course sites (Brightspace, etc.) often put the PDF in a child frame — without
+   * `allFrames: true`, the main page sees an empty selection even when text looks highlighted.
+   */
+  function execSelectedTextAllFrames(tabId) {
+    return new Promise((resolve, reject) => {
+      chrome.scripting.executeScript(
+        {
+          target: { tabId, allFrames: true },
+          func: () => {
+            try {
+              return window.getSelection()?.toString?.()?.trim?.() ?? "";
+            } catch {
+              return "";
+            }
+          },
+        },
+        (results) => {
+          const err = chrome?.runtime?.lastError;
+          if (err) reject(new Error(err.message));
+          else {
+            const parts = (results || [])
+              .map((r) => (typeof r?.result === "string" ? r.result.trim() : ""))
+              .filter(Boolean);
+            const longest = parts.reduce((best, cur) => (cur.length > best.length ? cur : best), "");
+            resolve(longest);
+          }
+        },
+      );
+    });
+  }
+
+  async function useSelectedText() {
+    setError(null);
+    setFeedback(null);
+    setGrabbingText(true);
+    try {
+      const tabs = await tabsQuery({ active: true, currentWindow: true });
+      const tab = tabs?.[0];
+      if (!tab?.id) {
+        setError(
+          "No active tab found. Click the website tab you want (the page behind this side panel), then try again.",
+        );
+        return;
+      }
+      if (isRestrictedBrowserPage(tab.url)) {
+        setError(
+          "Cannot read text on this kind of page (new tab, settings, or Web Store). Open your course or notes site, then try again.",
+        );
+        return;
+      }
+      const selected = await execSelectedTextAllFrames(tab.id);
+      if (selected) {
+        setQuestion(selected);
+        showFeedback(`Text inserted (${selected.length} chars).`);
+        return;
+      }
+      const data = await new Promise((resolve) => {
+        chrome.storage.session.get(["lastIngestedContent"], (d) => resolve(d));
+      });
+      if (data?.lastIngestedContent?.rawContent) {
+        const t = data.lastIngestedContent.rawContent.slice(0, 500);
+        setQuestion(t);
+        showFeedback(`Inserted saved page text (${t.length} chars).`);
+        return;
+      }
+      const url = tab.url || "";
+      const likelyEmbeddedPdf =
+        /brightspace|d2l|le\/lessons|content|viewer|pdf/i.test(url) || url.includes("d2l");
+      setError(
+        likelyEmbeddedPdf
+          ? "No selection from this PDF viewer. Try Ctrl+C / paste here, or use Screenshot to send the page as a picture."
+          : "No text is selected. Highlight text on the webpage first, then click “Use selected text” again.",
+      );
+    } catch (err) {
+      const msg =
+        chrome?.runtime?.lastError?.message ||
+        err?.message ||
+        "Could not read selected text. Open a normal webpage (not chrome://), then try again.";
+      setError(msg);
+    } finally {
+      setGrabbingText(false);
+    }
+  }
+
+  /** Captures the active tab in the current window (the page behind the side panel). */
+  async function attachVisibleTabScreenshot() {
+    setError(null);
+    setCapturingShot(true);
+    try {
+      const tabs = await tabsQuery({ active: true, currentWindow: true });
+      const tab = tabs?.[0];
+      if (!tab?.id || !tab?.windowId) {
+        setError(
+          "No active tab to capture. Click the tab you want (your notes or course page), then try again.",
+        );
+        return;
+      }
+      if (isRestrictedBrowserPage(tab.url)) {
+        setError(
+          "Cannot capture this page (browser internal or Web Store). Switch to your homework site or a PDF/notes tab.",
+        );
+        return;
+      }
+
+      const dataUrl = await captureVisibleTab(tab.windowId, { format: "png" });
+      if (!dataUrl || typeof dataUrl !== "string") {
+        throw new Error("No screenshot data returned.");
+      }
+      const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, "");
+      if (!base64) {
+        throw new Error("Screenshot was empty.");
+      }
+      setScreenshotBase64(base64);
+      setLastImagePreview(dataUrl);
+      setQuestion((q) => {
+        const trimmed = String(q ?? "").trim();
+        if (trimmed) return trimmed;
+        return "Describe what is shown in this screenshot.";
+      });
+      showFeedback("Screenshot attached.");
+    } catch (err) {
+      const msg =
+        chrome?.runtime?.lastError?.message ||
+        err?.message ||
+        "Screenshot failed. Make sure you clicked a normal website tab first, then use Capture again.";
+      setError(msg);
+    } finally {
+      setCapturingShot(false);
+    }
   }
 
   function handlePickImage(e) {
@@ -86,6 +248,7 @@ export function Ask() {
         if (trimmed) return trimmed;
         return "Describe what is shown in this image.";
       });
+      showFeedback(`Image attached (${file.name}).`);
       e.target.value = "";
     };
     reader.onerror = () => {
@@ -109,27 +272,6 @@ export function Ask() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:3000").replace(/\/+$/, "");
-    setDebugInfo((d) => ({ ...d, apiUrl: API_URL }));
-
-    fetch(`${API_URL}/health`)
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`Health check failed (${r.status})`))))
-      .then((data) => {
-        if (cancelled) return;
-        setApiStatus({ ok: true, detail: data?.firestore ? "ok" : "firestore unavailable" });
-      })
-      .catch((e) => {
-        if (cancelled) return;
-        setApiStatus({ ok: false, detail: e?.message || "unreachable" });
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
     apiFetch("/api/v1/courses")
       .then((data) => setCourses(data.courses || []))
       .catch(() => {});
@@ -143,6 +285,7 @@ export function Ask() {
     readerRef.current = null;
 
     setError(null);
+    setFeedback(null);
     setResponse(null);
     setStreamingText("");
 
@@ -162,13 +305,7 @@ export function Ask() {
         });
         setResponse(data);
         setScreenshotBase64(null);
-        setDebugInfo((d) => ({
-          ...d,
-          lastEventId: data?.eventId,
-          lastServerQuestion: data?.question,
-          lastClientQuestion: trimmed,
-          lastAt: new Date().toISOString(),
-        }));
+        setLastImagePreview(null);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -227,13 +364,6 @@ export function Ask() {
         body: JSON.stringify({ content: trimmed, courseId: courseId || undefined }),
       });
       setResponse(data);
-      setDebugInfo((d) => ({
-        ...d,
-        lastEventId: data?.eventId,
-        lastServerQuestion: data?.question,
-        lastClientQuestion: trimmed,
-        lastAt: new Date().toISOString(),
-      }));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -245,63 +375,76 @@ export function Ask() {
 
   return (
     <div className={styles.stack}>
-      <motion.div
-        className={styles.section}
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.2 }}
-      >
+      <div className={styles.section}>
         <p className={styles.eyebrow}>Ask mode</p>
         <h2 className={styles.h1}>What are you confused about?</h2>
         <p className={styles.text}>Any specific question you are confused on?</p>
         <p className={styles.text}>Or is there anything you wanna prioritize?</p>
+      </div>
 
-        <p className={styles.text} style={{ opacity: 0.8 }}>
-          API:{" "}
-          {apiStatus.ok === null
-            ? "checking…"
-            : apiStatus.ok
-              ? `connected (${apiStatus.detail})`
-              : `not reachable (${apiStatus.detail})`}
+      <div className={styles.card}>
+        <p className={styles.modalHelp} style={{ margin: 0 }}>
+          Use the <strong>tab behind this panel</strong> first (course page / PDF), then the buttons below.
         </p>
-        {debugInfo?.apiUrl && (
-          <p className={styles.text} style={{ opacity: 0.75 }}>
-            API base: {debugInfo.apiUrl}
-          </p>
-        )}
-        {debugInfo?.lastEventId && (
-          <p className={styles.text} style={{ opacity: 0.75 }}>
-            last eventId: {debugInfo.lastEventId} @ {debugInfo.lastAt}
-          </p>
-        )}
-        {debugInfo?.lastServerQuestion && (
-          <p className={styles.text} style={{ opacity: 0.75 }}>
-            server echoed question: {String(debugInfo.lastServerQuestion).slice(0, 200)}
-            {String(debugInfo.lastServerQuestion).length > 200 ? "…" : ""}
-          </p>
-        )}
-      </motion.div>
 
-      <motion.div
-        className={styles.card}
-        initial={{ opacity: 0, y: 14 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.08, duration: 0.2 }}
-      >
         <div className={styles.row}>
-          <button className={styles.secondaryButton} type="button" onClick={useSelectedText}>
-            Use Selected Text
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            title={TITLE_USE_SELECTION}
+            onClick={useSelectedText}
+            disabled={grabbingText || loading || isStreaming}
+          >
+            {grabbingText ? "Reading…" : "Use selected text"}
           </button>
           <button
             className={styles.secondaryButton}
             type="button"
-            onClick={captureScreenshot}
-            disabled={loading || isStreaming}
-            style={screenshotBase64 ? { borderColor: "var(--accent)", color: "var(--accent)" } : {}}
+            title={TITLE_SCREENSHOT}
+            onClick={attachVisibleTabScreenshot}
+            disabled={capturingShot || loading || isStreaming}
           >
-            {screenshotBase64 ? "Screenshot ready" : "Screenshot"}
+            {capturingShot ? "Capturing…" : "Screenshot"}
+          </button>
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            title={TITLE_UPLOAD}
+            onClick={() => {
+              setError(null);
+              setFeedback(null);
+              try {
+                if (!fileInputRef.current) throw new Error("Upload is not ready.");
+                fileInputRef.current.click();
+              } catch (err) {
+                setError(err?.message || "Could not open file picker.");
+              }
+            }}
+            disabled={loading || isStreaming}
+          >
+            Upload
           </button>
         </div>
+
+        {grabbingText && (
+          <p className={styles.feedbackBusy} aria-live="polite">
+            <span className={styles.feedbackBusyDot} aria-hidden />
+            Reading selection…
+          </p>
+        )}
+
+        {capturingShot && (
+          <p className={styles.feedbackBusy} aria-live="polite">
+            <span className={styles.feedbackBusyDot} aria-hidden />
+            Capturing tab…
+          </p>
+        )}
+
+        {feedback && (
+          <p className={styles.feedbackSuccess} role="status" aria-live="polite">
+            {feedback}
+          </p>
+        )}
 
         <input
           ref={fileInputRef}
@@ -315,6 +458,7 @@ export function Ask() {
           {courses.length > 0 && (
             <select
               className={styles.textarea}
+              title="Optional: narrow context to one ingested course."
               value={courseId}
               onChange={(e) => setCourseId(e.target.value)}
             >
@@ -327,119 +471,115 @@ export function Ask() {
             </select>
           )}
 
+          {lastImagePreview && (
+            <div className={styles.attachedImageRow}>
+              <img src={lastImagePreview} alt="" className={styles.attachedThumb} />
+              <div className={styles.attachedMeta}>
+                <p className={styles.attachedLabel}>Image attached</p>
+                <button
+                  type="button"
+                  className={styles.linkButton}
+                  title="Remove the image from this question."
+                  onClick={() => {
+                    setScreenshotBase64(null);
+                    setLastImagePreview(null);
+                    setError(null);
+                    setFeedback(null);
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          )}
+
           <textarea
             className={styles.textarea}
             rows={6}
+            title="Your question. Screenshot / Upload fill a starter line you can edit."
             placeholder="Type your question here..."
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
           />
 
-          <div className={styles.rowBetween}>
-            <button
-              className={styles.iconButton}
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={loading || isStreaming}
-            >
-              +
-            </button>
+          <div className={styles.rowBetween} style={{ justifyContent: "flex-end" }}>
             <button
               className={styles.iconButton}
               type="submit"
+              title={TITLE_SUBMIT}
               disabled={loading || isStreaming || !question.trim()}
             >
               {loading || isStreaming ? "·" : "→"}
             </button>
           </div>
         </form>
-      </motion.div>
+      </div>
 
-      {error && (
-        <motion.p className={styles.error} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          {error}
-        </motion.p>
-      )}
+      {error && <p className={styles.error}>{error}</p>}
 
-      {lastImagePreview && (
-        <div className={styles.card}>
-          <p className={styles.cardTitle}>Last image</p>
-          <img src={lastImagePreview} alt="Selected preview" style={{ width: "100%", borderRadius: 12 }} />
+      {showResponse && (
+        <div className={styles.card} style={{ overflow: "hidden" }}>
+          {streamingText ? (
+            <>
+              <p className={styles.cardTitle}>Question</p>
+              <p className={styles.text}>{question}</p>
+              <p className={styles.cardTitle}>Explanation</p>
+              <div className={styles.responseBox}>
+                <div className={styles.text}>
+                  <MathRenderer text={streamingText} />
+                  {isStreaming && <span className={styles.streamCursor} aria-hidden />}
+                </div>
+              </div>
+            </>
+          ) : response ? (
+            <>
+              <p className={styles.cardTitle}>Question</p>
+              <p className={styles.text}>{question}</p>
+
+              <p className={styles.cardTitle}>Step-by-step Solution</p>
+              <div className={styles.text}>
+                <MathRenderer text={response.solution} />
+              </div>
+
+              {response.mainConcept && (
+                <>
+                  <p className={styles.cardTitle}>Main Concept</p>
+                  <p className={styles.text}>{response.mainConcept}</p>
+                </>
+              )}
+
+              {response.keyFormulas?.length > 0 && (
+                <>
+                  <p className={styles.cardTitle}>Key Formulas</p>
+                  <ul className={styles.simpleList}>
+                    {response.keyFormulas.map((f, i) => (
+                      <li key={i}>
+                        <MathRenderer text={f} />
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+
+              {response.relevantLecture && (
+                <>
+                  <p className={styles.cardTitle}>Relevant Lecture</p>
+                  <p className={styles.text}>{response.relevantLecture}</p>
+                </>
+              )}
+
+              {response.personalizedCallout && (
+                <div className={styles.calloutBox}>
+                  <p className={styles.calloutTitle}>Personalized Callout</p>
+                  <div className={styles.text}>
+                    <MathRenderer text={response.personalizedCallout} />
+                  </div>
+                </div>
+              )}
+            </>
+          ) : null}
         </div>
       )}
-
-      <AnimatePresence>
-        {showResponse && (
-          <motion.div
-            className={styles.card}
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
-            style={{ overflow: "hidden" }}
-          >
-            {streamingText ? (
-              <>
-                <p className={styles.cardTitle}>Question</p>
-                <p className={styles.text}>{question}</p>
-                <p className={styles.cardTitle}>Explanation</p>
-                <div className={styles.responseBox}>
-                  <div className={styles.text}>
-                    <MathRenderer text={streamingText} />
-                    {isStreaming && <span className={styles.streamCursor} aria-hidden />}
-                  </div>
-                </div>
-              </>
-            ) : response ? (
-              <>
-                <p className={styles.cardTitle}>Question</p>
-                <p className={styles.text}>{question}</p>
-
-                <p className={styles.cardTitle}>Step-by-step Solution</p>
-                <div className={styles.text}>
-                  <MathRenderer text={response.solution} />
-                </div>
-
-                {response.mainConcept && (
-                  <>
-                    <p className={styles.cardTitle}>Main Concept</p>
-                    <p className={styles.text}>{response.mainConcept}</p>
-                  </>
-                )}
-
-                {response.keyFormulas?.length > 0 && (
-                  <>
-                    <p className={styles.cardTitle}>Key Formulas</p>
-                    <ul className={styles.simpleList}>
-                      {response.keyFormulas.map((f, i) => (
-                        <li key={i}>
-                          <MathRenderer text={f} />
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-
-                {response.relevantLecture && (
-                  <>
-                    <p className={styles.cardTitle}>Relevant Lecture</p>
-                    <p className={styles.text}>{response.relevantLecture}</p>
-                  </>
-                )}
-
-                {response.personalizedCallout && (
-                  <div className={styles.calloutBox}>
-                    <p className={styles.calloutTitle}>Personalized Callout</p>
-                    <div className={styles.text}>
-                      <MathRenderer text={response.personalizedCallout} />
-                    </div>
-                  </div>
-                )}
-              </>
-            ) : null}
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
