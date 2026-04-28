@@ -33,11 +33,17 @@ export function isSafeApiUrl(
       return true;
     }
 
-    return (
-      !requireHttps &&
-      parsed.protocol === "http:" &&
-      (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1")
-    );
+    const isLocalhost =
+      parsed.hostname === "localhost" ||
+      parsed.hostname === "127.0.0.1" ||
+      parsed.hostname === "[::1]" ||
+      parsed.hostname === "::1";
+
+    if (parsed.protocol === "http:") {
+      return !requireHttps || isLocalhost;
+    }
+
+    return false;
   } catch {
     return false;
   }

@@ -49,12 +49,14 @@ export function Course() {
           <CourseCard key={course.courseId} course={course} />
         ))
       ) : (
-        <div className={styles.card}>
-          <p className={styles.muted}>
-            No courses yet. Ingest course materials via the web dashboard to get
-            started.
-          </p>
-        </div>
+        !error && (
+          <div className={styles.card}>
+            <p className={styles.muted}>
+              No courses yet. Ingest course materials via the web dashboard to get
+              started.
+            </p>
+          </div>
+        )
       )}
     </div>
   );
