@@ -1,3 +1,12 @@
+const WEB_URL = import.meta.env.VITE_WEB_URL || "http://localhost:5173";
+const allowedWebOrigins = new Set(["http://localhost:5173", "http://127.0.0.1:5173"]);
+
+try {
+  allowedWebOrigins.add(new URL(WEB_URL).origin);
+} catch {
+  // Ignore invalid config here; the sign-in page will surface the bad URL.
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   void chrome.sidePanel.setOptions({
     path: "sidepanel.html",
@@ -10,6 +19,15 @@ chrome.action.onClicked.addListener((tab) => {
     void chrome.sidePanel.open({ windowId: tab.windowId });
   }
 });
+
+function isSafeWebUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return allowedWebOrigins.has(parsed.origin);
+  } catch {
+    return false;
+  }
+}
 
 function isSafeApiUrl(url) {
   try {
@@ -63,6 +81,32 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   return false;
+});
+
+chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+  if (message?.type !== "AUTH_FROM_WEB") {
+    return false;
+  }
+
+  if (!sender.url || !isSafeWebUrl(sender.url)) {
+    sendResponse({ ok: false, error: "Unauthorized sender." });
+    return false;
+  }
+
+  if (!message.token || !message.user) {
+    sendResponse({ ok: false, error: "Missing auth payload." });
+    return false;
+  }
+
+  chrome.storage.session
+    .set({
+      firebaseIdToken: message.token,
+      authUser: message.user,
+    })
+    .then(() => sendResponse({ ok: true }))
+    .catch((err) => sendResponse({ ok: false, error: err.message }));
+
+  return true;
 });
 
 async function ingestToBackend(payload) {

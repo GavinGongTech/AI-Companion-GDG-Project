@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   createUserWithEmailAndPassword,
   updateProfile,
@@ -7,14 +7,36 @@ import {
 import { auth, hasFirebaseConfig } from "../lib/firebase";
 import styles from "./AuthPages.module.css";
 import { apiFetch } from "../lib/api";
+import { getExtensionIdFromSearch, sendAuthToExtension } from "../lib/extensionBridge";
 
 export function SignUp() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
+  const extensionId = getExtensionIdFromSearch(searchParams.toString());
+  const extensionSearch = extensionId ? `?extensionId=${encodeURIComponent(extensionId)}` : "";
+
+  async function completeExtensionAuth() {
+    if (!extensionId) {
+      return true;
+    }
+
+    setStatus("Connecting your website session to the extension...");
+    const result = await sendAuthToExtension(extensionId);
+    if (!result.ok) {
+      setError(result.error);
+      setStatus("");
+      return false;
+    }
+
+    setStatus("Extension connected. You can return to Study Flow.");
+    return true;
+  }
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -41,7 +63,12 @@ export function SignUp() {
           meta: { provider: "password" },
         }),
       }).catch(() => {});
-      navigate("/welcome");
+      if (!(await completeExtensionAuth())) {
+        return;
+      }
+      if (!extensionId) {
+        navigate("/welcome");
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -55,10 +82,12 @@ export function SignUp() {
         <p className={styles.eyebrow}>New student</p>
         <h1 className={styles.title}>Create your account</h1>
         <p className={styles.lede}>
-          We’ll build your misconception graph as you study. You can connect
-          your courses after signup for auto-ingestion.
+          {extensionId
+            ? "Create your account here and we’ll connect the new session back to the extension."
+            : "We’ll build your misconception graph as you study. You can connect your courses after signup for auto-ingestion."}
         </p>
         {error && <p className={styles.error}>{error}</p>}
+        {status && <p className={styles.note}>{status}</p>}
         <form className={styles.form} onSubmit={onSubmit}>
           <label className={styles.field}>
             <span className={styles.label}>Full name</span>
@@ -110,7 +139,7 @@ export function SignUp() {
         </form>
         <p className={styles.footerLine}>
           Already have an account?{" "}
-          <Link to="/login" className={styles.inlineLink}>
+          <Link to={`/login${extensionSearch}`} className={styles.inlineLink}>
             Log in
           </Link>
         </p>
