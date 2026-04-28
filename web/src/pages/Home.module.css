@@ -15,7 +15,7 @@
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: #334155;
 }
 
 .headline {
@@ -27,7 +27,7 @@
 }
 
 .headlineAccent {
-  color: var(--text-soft);
+  color: #1e293b;
 }
 
 .lede {
@@ -172,7 +172,8 @@
 }
 
 .diagramArrow {
-  opacity: 0.6;
+  color: #475569;
+  opacity: 1;
 }
 
 .diagramSub {
@@ -265,7 +266,7 @@
   font-size: 0.82rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: #334155;
   background: var(--bg-muted);
 }
 

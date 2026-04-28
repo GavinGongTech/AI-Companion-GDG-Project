@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { apiFetch } from "../lib/api";
 import { MathRenderer } from "../components/MathRenderer";
 import "katex/dist/katex.min.css";
@@ -6,7 +6,10 @@ import styles from "./Pages.module.css";
 
 export function Quiz() {
   const [topic, setTopic] = useState("");
+  const [courseId, setCourseId] = useState("");
+  const [courses, setCourses] = useState([]);
   const [questions, setQuestions] = useState([]);
+  const [sessionId, setSessionId] = useState("");
   const [currentIdx, setCurrentIdx] = useState(0);
   const [selected, setSelected] = useState(null);
   const [result, setResult] = useState(null);
@@ -14,10 +17,17 @@ export function Quiz() {
   const [error, setError] = useState(null);
   const [score, setScore] = useState({ correct: 0, total: 0 });
 
+  useEffect(() => {
+    apiFetch("/api/v1/courses")
+      .then((data) => setCourses(data.courses || []))
+      .catch(() => {});
+  }, []);
+
   async function startQuiz() {
     setLoading(true);
     setError(null);
     setQuestions([]);
+    setSessionId("");
     setCurrentIdx(0);
     setSelected(null);
     setResult(null);
@@ -27,12 +37,12 @@ export function Quiz() {
         method: "POST",
         body: JSON.stringify({
           topic: topic.trim() || undefined,
+          courseId: courseId || undefined,
           count: 3,
         }),
       });
-      // Server returns { questions: [...] } for count > 1
-      const qs = data.questions || [data];
-      setQuestions(qs);
+      setSessionId(data.sessionId || "");
+      setQuestions(data.questions || []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -43,26 +53,30 @@ export function Quiz() {
   async function submitAnswer() {
     if (selected === null) return;
     const q = questions[currentIdx];
-    const isCorrect = selected === q.answer;
 
-    setResult({ isCorrect, explanation: q.explanation });
-    setScore((prev) => ({
-      correct: prev.correct + (isCorrect ? 1 : 0),
-      total: prev.total + 1,
-    }));
-
-    // Record answer in backend for SMG tracking
+    // Grade + record answer server-side (client does not receive the answer key).
     try {
-      await apiFetch("/api/v1/quiz/answer", {
+      const data = await apiFetch("/api/v1/quiz/answer", {
         method: "POST",
         body: JSON.stringify({
           conceptNode: q.conceptNode,
           selectedAnswer: selected,
-          correctAnswer: q.answer,
+          sessionId,
+          questionIndex: currentIdx,
+          courseId: courseId || undefined,
         }),
       });
-    } catch {
-      // Non-blocking — don't interrupt the quiz flow for tracking failures
+
+      const isCorrect = Boolean(data.isCorrect);
+      const correctAnswer = typeof data.correctAnswer === "number" ? data.correctAnswer : null;
+
+      setResult({ isCorrect, correctAnswer });
+      setScore((prev) => ({
+        correct: prev.correct + (isCorrect ? 1 : 0),
+        total: prev.total + 1,
+      }));
+    } catch (err) {
+      setError(err.message || "Could not grade answer. Try starting a new quiz.");
     }
   }
 
@@ -88,6 +102,21 @@ export function Quiz() {
           <label className={styles.cardTitle}>
             Topic (optional — leave blank to target weak areas)
           </label>
+          {courses.length > 0 && (
+            <select
+              className={styles.textarea}
+              title="Optional: narrow context to one ingested course."
+              value={courseId}
+              onChange={(e) => setCourseId(e.target.value)}
+            >
+              <option value="">All courses</option>
+              {courses.map((c) => (
+                <option key={c.courseId} value={c.courseId}>
+                  {c.courseName || c.courseId}
+                </option>
+              ))}
+            </select>
+          )}
           <input
             className={styles.textarea}
             style={{ minHeight: "auto" }}
@@ -141,7 +170,7 @@ export function Quiz() {
                       ? "2px solid #111827"
                       : "2px solid transparent",
                   background:
-                    result && i === q.answer
+                    result && result.correctAnswer === i
                       ? "#d1fae5"
                       : result && i === selected && !result.isCorrect
                         ? "#fee2e2"
@@ -171,7 +200,7 @@ export function Quiz() {
                   {result.isCorrect ? "Correct!" : "Incorrect"}
                 </p>
                 <div className={styles.text}>
-                  <MathRenderer text={result.explanation} />
+                  <MathRenderer text={q.explanation} />
                 </div>
               </div>
               {currentIdx < questions.length - 1 ? (

@@ -6,8 +6,9 @@
   --border-subtle: #e5e7eb;
   --border-glow: #d1d5db;
   --text-primary: #111827;
-  --text-muted: #6b7280;
-  --text-soft: #374151;
+  /* Muted text: dark enough for WCAG AA (~4.5:1) on white and on --bg-muted */
+  --text-muted: #475569;
+  --text-soft: #334155;
   --accent: #111827;
   --accent-dim: #e5e7eb;
   --accent-strong: #374151;

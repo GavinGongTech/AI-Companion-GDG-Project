@@ -1,8 +1,9 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { fileURLToPath } from "url";
-import { dirname, resolve } from "path";
-import { exec } from "child_process";
+import { dirname, resolve, join } from "path";
+import { execSync } from "child_process";
+import { mkdirSync, existsSync, unlinkSync } from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -11,14 +12,23 @@ function zipExtension() {
   return {
     name: "zip-extension",
     closeBundle() {
+      const distDir = join(__dirname, "dist");
+      const destDir = join(__dirname, "..", "web", "public", "downloads");
+      const zipPath = join(destDir, "study-flow-extension.zip");
       console.log("Zipping extension...");
-      exec("mkdir -p ../web/public/downloads && cd dist && zip -r ../../web/public/downloads/study-flow-extension.zip .", (err, stdout, stderr) => {
-        if (err) {
-          console.error("Failed to zip extension:", err);
-          return;
+      try {
+        mkdirSync(destDir, { recursive: true });
+        if (existsSync(zipPath)) unlinkSync(zipPath);
+        const zipArg = zipPath.replace(/\\/g, "/");
+        if (process.platform === "win32") {
+          execSync(`tar.exe -a -c -f "${zipArg}" *`, { cwd: distDir, stdio: "inherit", shell: true });
+        } else {
+          execSync(`zip -r "${zipArg}" .`, { cwd: distDir, stdio: "inherit" });
         }
         console.log("Extension zipped successfully to web/public/downloads/study-flow-extension.zip");
-      });
+      } catch (e) {
+        console.error("Failed to zip extension:", e);
+      }
     }
   };
 }
