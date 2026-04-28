@@ -1,12 +1,16 @@
 import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { apiFetch } from "../lib/api";
+import { sendAuthToExtension } from "../lib/extensionBridge";
 import styles from "./Dashboard.module.css";
 
 const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:3000").replace(/\/+$/, "");
 
 export default function Dashboard() {
   const user = useAuth();
+  const [searchParams] = useSearchParams();
+  const extensionId = searchParams.get("extensionId") || "";
   const graphRef = useRef(null);
   const cyRef = useRef(null);
   const [nodes, setNodes] = useState([]);
@@ -20,6 +24,8 @@ export default function Dashboard() {
   const [ingestText, setIngestText] = useState("");
   const [ingestStatus, setIngestStatus] = useState(null);
   const [ingestError, setIngestError] = useState(null);
+  const [extensionStatus, setExtensionStatus] = useState("");
+  const [connectingExtension, setConnectingExtension] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -126,6 +132,25 @@ export default function Dashboard() {
     }
   }
 
+  async function handleConnectExtension() {
+    setConnectingExtension(true);
+    setExtensionStatus("");
+    try {
+      const result = await sendAuthToExtension(extensionId, {
+        user,
+      });
+      if (!result.ok) {
+        setExtensionStatus(result.error);
+        return;
+      }
+      setExtensionStatus("Extension connected. You can return to Study Flow.");
+    } catch (err) {
+      setExtensionStatus(err?.message || "Could not connect the extension.");
+    } finally {
+      setConnectingExtension(false);
+    }
+  }
+
   function barColor(rate) {
     if (rate < 0.4) return "#ef4444";
     if (rate < 0.7) return "#f59e0b";
@@ -169,6 +194,34 @@ export default function Dashboard() {
       <p className={styles.subheading}>
         Your progress, review queue, and recent study activity in one place.
       </p>
+
+      <div className={styles.extensionConnect}>
+        <div>
+          <h2 className={styles.extensionTitle}>Chrome extension</h2>
+          <p className={styles.extensionText}>
+            Connect the installed extension to this signed-in web session.
+          </p>
+        </div>
+        <button
+          type="button"
+          className={styles.extensionButton}
+          onClick={handleConnectExtension}
+          disabled={connectingExtension || !user}
+        >
+          {connectingExtension ? "Connecting..." : "Connect to extension"}
+        </button>
+      </div>
+      {extensionStatus && (
+        <p
+          className={
+            extensionStatus.startsWith("Extension connected")
+              ? styles.extensionSuccess
+              : styles.extensionError
+          }
+        >
+          {extensionStatus}
+        </p>
+      )}
 
       <div className={styles.statRow}>
         <div className={styles.stat}>

@@ -1,14 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   createUserWithEmailAndPassword,
-  onAuthStateChanged,
   updateProfile,
 } from "firebase/auth";
 import { auth, hasFirebaseConfig } from "../lib/firebase";
 import styles from "./AuthPages.module.css";
 import { apiFetch } from "../lib/api";
-import { getExtensionIdFromSearch, sendAuthToExtension } from "../lib/extensionBridge";
+import { getExtensionIdFromSearch } from "../lib/extensionBridge";
 
 export function SignUp() {
   const navigate = useNavigate();
@@ -17,43 +16,9 @@ export function SignUp() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
   const extensionId = getExtensionIdFromSearch(searchParams.toString());
-  const closeAfterAuth = searchParams.get("closeAfterAuth") === "1";
-  const extensionSearch = extensionId
-    ? `?extensionId=${encodeURIComponent(extensionId)}${closeAfterAuth ? "&closeAfterAuth=1" : ""}`
-    : "";
-
-  const completeExtensionAuth = useCallback(async (options = {}) => {
-    if (!extensionId) {
-      return true;
-    }
-
-    setStatus("Connecting your website session to the extension...");
-    const result = await sendAuthToExtension(extensionId, options);
-    if (!result.ok) {
-      setError(result.error);
-      setStatus("");
-      return false;
-    }
-
-    setStatus("Extension connected. You can return to Study Flow.");
-    return true;
-  }, [extensionId]);
-
-  useEffect(() => {
-    if (!extensionId || !hasFirebaseConfig || !auth) {
-      return;
-    }
-
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (!user) return;
-      void completeExtensionAuth({ closeAfterAuth });
-    });
-
-    return unsubscribe;
-  }, [closeAfterAuth, completeExtensionAuth, extensionId]);
+  const extensionSearch = extensionId ? `?extensionId=${encodeURIComponent(extensionId)}` : "";
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -80,12 +45,7 @@ export function SignUp() {
           meta: { provider: "password" },
         }),
       }).catch(() => {});
-      if (!(await completeExtensionAuth({ closeAfterAuth }))) {
-        return;
-      }
-      if (!extensionId) {
-        navigate("/welcome");
-      }
+      navigate(extensionId ? `/dashboard${extensionSearch}` : "/welcome");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -104,7 +64,6 @@ export function SignUp() {
             : "We’ll build your misconception graph as you study. You can connect your courses after signup for auto-ingestion."}
         </p>
         {error && <p className={styles.error}>{error}</p>}
-        {status && <p className={styles.note}>{status}</p>}
         <form className={styles.form} onSubmit={onSubmit}>
           <label className={styles.field}>
             <span className={styles.label}>Full name</span>

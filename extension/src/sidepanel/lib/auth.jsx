@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, hasFirebaseConfig } from "./firebase";
 
 const AuthContext = createContext(null);
@@ -10,7 +10,17 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let disposed = false;
 
+    async function isExtensionSignedOut() {
+      const data = await chrome.storage.local.get(["extensionSignedOut"]);
+      return Boolean(data.extensionSignedOut);
+    }
+
     async function syncFromStorage() {
+      if (await isExtensionSignedOut()) {
+        await chrome.storage.session.remove(["firebaseIdToken", "authUser"]);
+        if (!disposed) setUser(null);
+        return;
+      }
       const session = await chrome.storage.session.get(["firebaseIdToken", "authUser"]);
       if (disposed) return;
       setUser(session.firebaseIdToken ? (session.authUser || {}) : null);
@@ -19,11 +29,17 @@ export function AuthProvider({ children }) {
     void syncFromStorage();
 
     const onStorageChange = (changes, areaName) => {
-      if (areaName !== "session") return;
-      if (!changes.firebaseIdToken && !changes.authUser) return;
-      const token = changes.firebaseIdToken?.newValue;
-      const nextUser = changes.authUser?.newValue;
-      setUser(token ? (nextUser || {}) : null);
+      if (areaName === "local" && changes.extensionSignedOut?.newValue) {
+        chrome.storage.session.remove(["firebaseIdToken", "authUser"]);
+        setUser(null);
+        return;
+      }
+      if (areaName === "session") {
+        if (!changes.firebaseIdToken && !changes.authUser) return;
+        const token = changes.firebaseIdToken?.newValue;
+        const nextUser = changes.authUser?.newValue;
+        setUser(token ? (nextUser || {}) : null);
+      }
     };
 
     chrome.storage.onChanged.addListener(onStorageChange);
@@ -33,6 +49,12 @@ export function AuthProvider({ children }) {
 
     if (hasFirebaseConfig && auth) {
       unsub = onAuthStateChanged(auth, async (u) => {
+        if (await isExtensionSignedOut()) {
+          if (u) await signOut(auth);
+          await chrome.storage.session.remove(["firebaseIdToken", "authUser"]);
+          setUser(null);
+          return;
+        }
         if (u) {
           const token = await u.getIdToken();
           const nextUser = {
@@ -52,6 +74,7 @@ export function AuthProvider({ children }) {
 
       // Refresh token every 50 minutes (tokens expire after 60)
       interval = setInterval(async () => {
+        if (await isExtensionSignedOut()) return;
         const current = auth.currentUser;
         if (current) {
           const token = await current.getIdToken(true);

@@ -84,13 +84,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
-  if (message?.type !== "AUTH_FROM_WEB") {
+  if (message?.type !== "AUTH_FROM_WEB" && message?.type !== "SIGN_OUT_FROM_WEB") {
     return false;
   }
 
   if (!sender.url || !isSafeWebUrl(sender.url)) {
     sendResponse({ ok: false, error: "Unauthorized sender." });
     return false;
+  }
+
+  if (message.type === "SIGN_OUT_FROM_WEB") {
+    Promise.all([
+      chrome.storage.session.remove(["firebaseIdToken", "authUser"]),
+      chrome.storage.local.set({ extensionSignedOut: true }),
+    ])
+      .then(() => sendResponse({ ok: true }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }));
+    return true;
   }
 
   if (!message.token || !message.user) {
@@ -103,6 +113,7 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
       firebaseIdToken: message.token,
       authUser: message.user,
     })
+    .then(() => chrome.storage.local.remove("extensionSignedOut"))
     .then(() => {
       sendResponse({ ok: true });
       if (message.closeAfterAuth && sender.tab?.id) {

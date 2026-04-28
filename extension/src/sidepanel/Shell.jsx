@@ -21,7 +21,8 @@ export function Shell({ children }) {
     } catch {
       /* still clear session storage below */
     }
-    chrome.storage.session.remove(["firebaseIdToken", "authUser"]);
+    await chrome.storage.local.set({ extensionSignedOut: true });
+    await chrome.storage.session.remove(["firebaseIdToken", "authUser"]);
   }
 
   return (

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, hasFirebaseConfig } from "./firebase";
+import { signOutExtension } from "./extensionBridge";
 
 const AuthContext = createContext(null);
 
@@ -12,7 +13,12 @@ export function AuthProvider({ children }) {
     if (!hasFirebaseConfig || !auth) {
       return undefined;
     }
-    return onAuthStateChanged(auth, setUser);
+    return onAuthStateChanged(auth, (nextUser) => {
+      setUser(nextUser);
+      if (!nextUser) {
+        signOutExtension().catch(() => {});
+      }
+    });
   }, []);
 
   return <AuthContext.Provider value={user}>{children}</AuthContext.Provider>;

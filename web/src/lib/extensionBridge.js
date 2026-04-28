@@ -49,3 +49,31 @@ export async function sendAuthToExtension(extensionId, options = {}) {
 
   return { ok: true };
 }
+
+export async function signOutExtension(extensionId = "") {
+  const targetExtensionId = extensionId || CONFIGURED_EXTENSION_ID;
+  if (!targetExtensionId) {
+    return { ok: false, error: "Missing extension ID." };
+  }
+
+  const chromeRuntime = globalThis.chrome?.runtime;
+  if (!chromeRuntime?.sendMessage) {
+    return {
+      ok: false,
+      error: "Chrome extension messaging is unavailable in this browser.",
+    };
+  }
+
+  const response = await chromeRuntime.sendMessage(targetExtensionId, {
+    type: "SIGN_OUT_FROM_WEB",
+  });
+
+  if (!response?.ok) {
+    return {
+      ok: false,
+      error: response?.error || "Failed to sign out the extension.",
+    };
+  }
+
+  return { ok: true };
+}

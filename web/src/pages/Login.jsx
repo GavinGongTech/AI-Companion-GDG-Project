@@ -1,60 +1,34 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   signInWithEmailAndPassword,
   signInWithPopup,
   GoogleAuthProvider,
-  onAuthStateChanged,
 } from "firebase/auth";
 import { auth, hasFirebaseConfig } from "../lib/firebase";
+import { useAuth } from "../lib/auth";
 import styles from "./AuthPages.module.css";
 import { apiFetch } from "../lib/api";
-import { getExtensionIdFromSearch, sendAuthToExtension } from "../lib/extensionBridge";
+import { getExtensionIdFromSearch } from "../lib/extensionBridge";
 
 const googleProvider = new GoogleAuthProvider();
 
 export function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const currentUser = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
   const extensionId = getExtensionIdFromSearch(searchParams.toString());
-  const closeAfterAuth = searchParams.get("closeAfterAuth") === "1";
-  const extensionSearch = extensionId
-    ? `?extensionId=${encodeURIComponent(extensionId)}${closeAfterAuth ? "&closeAfterAuth=1" : ""}`
-    : "";
-
-  const completeExtensionAuth = useCallback(async (options = {}) => {
-    setStatus("Connecting your website session to the extension...");
-    const result = await sendAuthToExtension(extensionId, options);
-    if (!result.ok) {
-      if (extensionId) {
-        setError(result.error);
-        setStatus("");
-        return false;
-      }
-      return false;
-    }
-
-    setStatus("Extension connected. You can return to Study Flow.");
-    return true;
-  }, [extensionId]);
+  const extensionSearch = extensionId ? `?extensionId=${encodeURIComponent(extensionId)}` : "";
 
   useEffect(() => {
-    if (!extensionId || !hasFirebaseConfig || !auth) {
-      return;
+    if (extensionId && currentUser) {
+      navigate(`/dashboard${extensionSearch}`, { replace: true });
     }
-
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (!user) return;
-      void completeExtensionAuth({ closeAfterAuth });
-    });
-
-    return unsubscribe;
-  }, [closeAfterAuth, completeExtensionAuth, extensionId]);
+  }, [currentUser, extensionId, extensionSearch, navigate]);
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -76,15 +50,7 @@ export function Login() {
           meta: { provider: "password" },
         }),
       }).catch(() => {});
-      if (extensionId && !(await completeExtensionAuth({ closeAfterAuth }))) {
-        return;
-      }
-      if (!extensionId) {
-        completeExtensionAuth({ user }).catch(() => {});
-      }
-      if (!extensionId) {
-        navigate("/dashboard");
-      }
+      navigate(extensionId ? `/dashboard${extensionSearch}` : "/dashboard");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -111,15 +77,7 @@ export function Login() {
           meta: { provider: "google" },
         }),
       }).catch(() => {});
-      if (extensionId && !(await completeExtensionAuth({ closeAfterAuth }))) {
-        return;
-      }
-      if (!extensionId) {
-        completeExtensionAuth({ user }).catch(() => {});
-      }
-      if (!extensionId) {
-        navigate("/dashboard");
-      }
+      navigate(extensionId ? `/dashboard${extensionSearch}` : "/dashboard");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -138,7 +96,6 @@ export function Login() {
             : "Sign in with your email or Google account to continue studying."}
         </p>
         {error && <p className={styles.error}>{error}</p>}
-        {status && <p className={styles.note}>{status}</p>}
         <form className={styles.form} onSubmit={onSubmit}>
           <label className={styles.field}>
             <span className={styles.label}>Email</span>

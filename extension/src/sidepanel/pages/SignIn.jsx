@@ -12,9 +12,11 @@ export function SignIn() {
     setLoading(true);
     setError(null);
     try {
+      if (!auto) {
+        await chrome.storage.local.remove("extensionSignedOut");
+      }
       const url = new URL(path, WEB_URL);
       url.searchParams.set("extensionId", chrome.runtime.id);
-      url.searchParams.set("closeAfterAuth", "1");
       if (auto) {
         url.searchParams.set("auto", "1");
       }
@@ -29,21 +31,21 @@ export function SignIn() {
   useEffect(() => {
     if (autoStarted.current) return;
     autoStarted.current = true;
-    void openWebAuth("/login", { auto: true });
+    chrome.storage.local.get(["extensionSignedOut"], (data) => {
+      if (data?.extensionSignedOut) return;
+      void openWebAuth("/login", { auto: true });
+    });
   }, [openWebAuth]);
 
   return (
     <div className={styles.center}>
       <h1 className={styles.h1}>Sign in to Study Flow</h1>
       <p className={styles.lede}>
-        Checking your Study Flow website session. If you are not signed in there yet, finish sign-in on the website.
+        Log in on the Study Flow website, then connect the extension from your dashboard.
       </p>
       {error && <p className={styles.error}>{error}</p>}
       <button type="button" className={styles.primary} onClick={() => openWebAuth("/login")} disabled={loading}>
-        {loading ? "Opening website..." : "Open sign-in page"}
-      </button>
-      <button type="button" className={styles.secondaryButton} onClick={() => openWebAuth("/signup")} disabled={loading}>
-        Create account
+        {loading ? "Opening website..." : "Login through webpage"}
       </button>
     </div>
   );
