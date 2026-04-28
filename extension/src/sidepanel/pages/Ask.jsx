@@ -3,7 +3,7 @@ import { apiFetch } from "../lib/api";
 import { MathRenderer } from "../components/MathRenderer";
 import styles from "./Pages.module.css";
 
-const TITLE_USE_SELECTION = "Ask about text you've highlighted on the page.";
+const TITLE_USE_SELECTION = "Ask about text you've highlighted or the entire page text.";
 const TITLE_SCREENSHOT = "Capture the visible part of the current tab and ask about it.";
 const TITLE_UPLOAD = "Upload a PDF, image, or text file to analyze.";
 
@@ -12,7 +12,8 @@ export function Ask() {
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState(null);
   const [error, setError] = useState(null);
-  const [courseId, setCourseId] = useState(null);
+  const [courseId, setCourseId] = useState("");
+  const [courses, setCourses] = useState([]);
   const [streamingText, setStreamingText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [grabbingText, setGrabbingText] = useState(false);
@@ -22,9 +23,21 @@ export function Ask() {
   const fileInputRef = useRef(null);
 
   useEffect(() => {
+    apiFetch("/api/v1/courses")
+      .then((data) => setCourses(data.courses || []))
+      .catch(() => {});
+
     chrome.storage.local.get(["activeCourseId"], (data) => {
       if (data.activeCourseId) setCourseId(data.activeCourseId);
     });
+  }, []);
+
+  const hasAutoGrabbed = useRef(false);
+  useEffect(() => {
+    if (!hasAutoGrabbed.current) {
+      hasAutoGrabbed.current = true;
+      handleUseSelectedText();
+    }
   }, []);
 
   async function handleAsk(e) {
@@ -51,28 +64,33 @@ export function Ask() {
     }
   }
 
-  async function useSelectedText() {
+  async function handleUseSelectedText() {
     setGrabbingText(true);
     setError(null);
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (!tab?.id) throw new Error("No active tab found.");
+      if (!tab?.id || tab.url?.startsWith("chrome://") || tab.url?.startsWith("edge://")) {
+        throw new Error("Cannot read from this page.");
+      }
 
       const results = await chrome.scripting.executeScript({
         target: { tabId: tab.id },
-        func: () => window.getSelection().toString(),
+        func: () => {
+          const sel = window.getSelection().toString().trim();
+          return sel ? sel : document.body.innerText;
+        },
       });
 
       const text = results?.[0]?.result;
       if (text) {
-        setQuestion(text);
+        setQuestion(prev => prev ? prev : text.substring(0, 15000));
       } else {
         // Fallback to last ingested content if no selection
         const data = await chrome.storage.session.get(["lastIngestedContent"]);
         if (data.lastIngestedContent?.rawContent) {
-          setQuestion(data.lastIngestedContent.rawContent.slice(0, 500));
+          setQuestion(prev => prev ? prev : data.lastIngestedContent.rawContent.slice(0, 5000));
         } else {
-          setFeedback("No text selected. Highlight some text on the page first!");
+          setFeedback("No text found on the page!");
         }
       }
     } catch (err) {
@@ -149,6 +167,21 @@ export function Ask() {
   return (
     <div className={styles.stack}>
       <form className={styles.inputGroup} onSubmit={handleAsk}>
+        {courses.length > 0 && (
+          <select
+            className={styles.textarea}
+            style={{ minHeight: "auto", marginBottom: "8px" }}
+            value={courseId}
+            onChange={(e) => setCourseId(e.target.value)}
+          >
+            <option value="">All courses (Auto-detect context)</option>
+            {courses.map((c) => (
+              <option key={c.courseId} value={c.courseId}>
+                {c.courseName || c.courseId}
+              </option>
+            ))}
+          </select>
+        )}
         <textarea
           className={styles.textarea}
           placeholder="Ask a question or use tools below..."
@@ -161,10 +194,10 @@ export function Ask() {
             className={styles.secondaryButton}
             type="button"
             title={TITLE_USE_SELECTION}
-            onClick={useSelectedText}
+            onClick={handleUseSelectedText}
             disabled={grabbingText || loading || isStreaming}
           >
-            {grabbingText ? "Reading…" : "Use selected text"}
+            {grabbingText ? "Reading…" : "Read Page Text"}
           </button>
           <button
             className={styles.secondaryButton}

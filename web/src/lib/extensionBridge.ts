@@ -1,11 +1,16 @@
 import { auth } from "./firebase";
 
-export function getExtensionIdFromSearch(search) {
+export function getExtensionIdFromSearch(search: string): string {
   const params = new URLSearchParams(search);
   return params.get("extensionId") || "";
 }
 
-export async function sendAuthToExtension(extensionId) {
+interface AuthResponse {
+  ok: boolean;
+  error?: string;
+}
+
+export async function sendAuthToExtension(extensionId: string): Promise<AuthResponse> {
   if (!extensionId) {
     return { ok: false, error: "Missing extension ID." };
   }
@@ -15,7 +20,8 @@ export async function sendAuthToExtension(extensionId) {
     return { ok: false, error: "No signed-in user found." };
   }
 
-  if (!globalThis.chrome?.runtime?.sendMessage) {
+  const chrome = (globalThis as any).chrome;
+  if (!chrome?.runtime?.sendMessage) {
     return {
       ok: false,
       error: "Chrome extension messaging is unavailable in this browser.",

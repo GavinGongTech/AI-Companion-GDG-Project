@@ -1,44 +1,4 @@
-import { env } from "../env.js";
-import { graphifyPromptPart } from "./graphify.js";
 import { getAiProvider } from "../ai/index.js";
-import { geminiProvider } from "../ai/geminiProvider.js";
-
-export const ai = geminiProvider.client;
-
-const PRIMARY_MODEL = env.geminiModel || "gemini-1.5-pro";
-const FAST_MODEL = env.geminiFastModel || "gemini-1.5-flash";
-
-function isQuotaError(err) {
-  const msg = String(err?.message || "");
-  const code = err?.status || err?.code;
-  return (
-    code === 429 ||
-    code === "RESOURCE_EXHAUSTED" ||
-    msg.includes("RESOURCE_EXHAUSTED") ||
-    msg.includes("Quota exceeded") ||
-    msg.includes("exceeded your current quota")
-  );
-}
-
-/**
- * Wrapper to handle model fallbacks (e.g. 429 quota errors).
- */
-async function withFallback(fn, modelType = "primary") {
-  try {
-    return await fn(modelType === "primary" ? "primary" : "fast");
-  } catch (err) {
-    if (modelType === "primary" && isQuotaError(err)) {
-      console.warn("Gemini Primary Model quota exceeded, falling back to Fast Model...");
-      return await fn("fast");
-    }
-    throw err;
-  }
-}
-
-function graphify(text, options) {
-  if (!env.graphifyEnabled) return String(text ?? "");
-  return graphifyPromptPart(text, options);
-}
 
 function buildSmgSection(smg, { label, includeInteractions = false, includeDifficulty = null } = {}) {
   if (!smg) return "";
@@ -69,11 +29,11 @@ Respond with ONLY a JSON object:
   "confidence": <number between 0 and 1>
 }`;
 
-  return withFallback((model) => getAiProvider().generateJson({
-    model,
+  return getAiProvider().generateJson({
+    model: "fast",
     prompt,
     temperature: 0.0,
-  }));
+  });
 }
 
 /**
@@ -105,11 +65,11 @@ Respond with ONLY a JSON object:
   "personalizedCallout": "<a personalized note based on the student's history, or empty string if no history>"
 }`;
 
-  return withFallback((model) => getAiProvider().generateJson({
-    model: model === "primary" ? "primary" : "fast",
+  return getAiProvider().generateJson({
+    model: "primary",
     prompt,
     temperature: 0.4,
-  }));
+  });
 }
 
 /**
@@ -132,11 +92,11 @@ Respond with ONLY a JSON object:
   ]
 }`;
 
-  return withFallback((model) => getAiProvider().generateJson({
-    model,
+  return getAiProvider().generateJson({
+    model: "primary",
     prompt,
     temperature: 0.7,
-  }));
+  });
 }
 
 /**
@@ -152,9 +112,9 @@ STUDENT QUESTION: ${compactQuestion}
 
 Give a clear, step-by-step explanation. Highlight key formulas. Be concise but thorough.`;
 
-  return withFallback((model) => getAiProvider().streamText({
-    model,
+  return getAiProvider().streamText({
+    model: "primary",
     prompt,
     temperature: 0.4,
-  }), "primary");
+  });
 }

@@ -15,9 +15,30 @@ vi.mock("firebase-admin/app", () => ({
 
 const mockGet = vi.fn().mockResolvedValue({ exists: false });
 const mockSet = vi.fn().mockResolvedValue(undefined);
-const mockWhere = vi.fn(() => ({ orderBy: vi.fn(() => ({ limit: vi.fn(() => ({ get: vi.fn().mockResolvedValue({ empty: true, docs: [] }) })) })), get: vi.fn().mockResolvedValue({ empty: true, docs: [] }) }));
+const mockWhere = vi.fn(() => ({
+  orderBy: vi.fn(() => ({
+    limit: vi.fn(() => ({
+      get: vi.fn().mockResolvedValue({ empty: true, docs: [] }),
+    })),
+  })),
+  limit: vi.fn(() => ({
+    get: vi.fn().mockResolvedValue({ empty: true, docs: [] }),
+  })),
+  get: vi.fn().mockResolvedValue({ empty: true, docs: [] }),
+}));
+
 // mockDoc supports sub-collections (e.g. users/{uid}/quizSessions/{id})
-const mockDoc = vi.fn(() => ({ get: mockGet, set: mockSet, id: "mock-id", collection: vi.fn(() => ({ doc: vi.fn(() => ({ get: mockGet, set: mockSet, id: "mock-sub-id" })) })) }));
+const mockDoc = vi.fn(() => ({
+  get: mockGet,
+  set: mockSet,
+  id: "mock-id",
+  collection: vi.fn(() => ({
+    doc: vi.fn(() => ({ get: mockGet, set: mockSet, id: "mock-sub-id" })),
+    where: mockWhere,
+    limit: vi.fn(() => ({ get: vi.fn().mockResolvedValue({ empty: true, docs: [] }) })),
+    get: vi.fn().mockResolvedValue({ empty: true, docs: [] }),
+  })),
+}));
 const mockCollection = vi.fn(() => ({ doc: mockDoc, where: mockWhere }));
 
 vi.mock("firebase-admin/firestore", () => ({

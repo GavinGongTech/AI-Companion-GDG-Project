@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   GoogleAuthProvider,
@@ -29,12 +29,16 @@ export function Login() {
   const extensionId = getExtensionIdFromSearch(searchParams.toString());
   const extensionSearch = extensionId ? `?extensionId=${encodeURIComponent(extensionId)}` : "";
 
-  async function completeExtensionAuth() {
+  const completeExtensionAuth = useCallback(async () => {
     if (!extensionId) {
       return true;
     }
 
-    setStatus("Connecting your website session to the extension...");
+    // Wrap in setTimeout to avoid synchronous setState in effect
+    setTimeout(() => {
+      setStatus("Connecting your website session to the extension...");
+    }, 0);
+
     const result = await sendAuthToExtension(extensionId);
     if (!result.ok) {
       setError(result.error || "Failed to connect to extension");
@@ -44,15 +48,21 @@ export function Login() {
 
     setStatus("Extension connected. You can return to Study Flow.");
     return true;
-  }
-
-  useEffect(() => {
-    if (!extensionId || !auth?.currentUser) {
-      return;
-    }
-
-    void completeExtensionAuth();
   }, [extensionId]);
+
+  // Handle auto-connection when user is already signed in
+  useEffect(() => {
+    let active = true;
+    
+    if (extensionId && auth?.currentUser) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      void completeExtensionAuth().then(() => {
+        if (!active) return;
+      });
+    }
+    
+    return () => { active = false; };
+  }, [extensionId, completeExtensionAuth]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
