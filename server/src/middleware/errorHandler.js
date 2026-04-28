@@ -1,4 +1,5 @@
 import { logger } from '../logger.js'
+import { buildErrorBody } from "../http/responses.js";
 
 /**
  * Global Express error handler. Must be registered as the last middleware in index.js.
@@ -14,5 +15,6 @@ export function errorHandler(err, req, res, next) {
   }
 
   const clientMessage = status >= 500 ? "Internal server error" : message;
-  res.status(status).json({ error: clientMessage });
+  const details = status >= 500 ? undefined : err.details;
+  res.status(status).json(buildErrorBody(clientMessage, details));
 }

@@ -1,5 +1,6 @@
 import { auth } from "../db/firebase.js";
 import { logger } from "../logger.js";
+import { sendError } from "../http/responses.js";
 
 /**
  * Middleware that verifies a Firebase ID token from the Authorization header.
@@ -11,7 +12,7 @@ export async function requireFirebaseAuth(req, res, next) {
   const token = header.startsWith("Bearer ") ? header.slice(7) : null;
 
   if (!token) {
-    return res.status(401).json({ error: "Missing auth token" });
+    return sendError(res, 401, "Missing auth token");
   }
 
   try {
@@ -21,15 +22,14 @@ export async function requireFirebaseAuth(req, res, next) {
   } catch (err) {
     logger.warn({ code: err?.code, msg: err?.message }, "Firebase token verification failed");
     if (err?.code === "auth/user-disabled") {
-      return res.status(403).json({ error: "Account disabled. Please contact support." });
+      return sendError(res, 403, "Account disabled. Please contact support.");
     }
     if (err?.code === "auth/argument-error") {
-      return res.status(400).json({ error: "Malformed authorization token." });
+      return sendError(res, 400, "Malformed authorization token.");
     }
     if (!err?.code || !err.code.startsWith("auth/")) {
-      return res.status(503).json({ error: "Authentication service temporarily unavailable." });
+      return sendError(res, 503, "Authentication service temporarily unavailable.");
     }
-    return res.status(401).json({ error: "Invalid or expired auth token. Please sign in again." });
+    return sendError(res, 401, "Invalid or expired auth token. Please sign in again.");
   }
 }
-

@@ -1,11 +1,11 @@
 import { embedBatch } from "./embeddings.js";
 import { extractText, extractTextFromPDF } from "./ocr.js";
-import { ai } from "./gemini.js";
 import { db } from "../db/firebase.js";
 import { FieldValue } from "firebase-admin/firestore";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { getAiProvider } from "../ai/index.js";
 
 const CHUNK_SIZE = 500;   // characters per chunk
 const CHUNK_OVERLAP = 50; // overlap between adjacent chunks
@@ -131,12 +131,10 @@ export async function uploadToGeminiFileAPI(uid, courseId, filePath, filename, s
     ".jpeg": "image/jpeg",
   };
 
-  const uploaded = await ai.files.upload({
-    file: filePath,
-    config: {
-      displayName: filename,
-      mimeType: mimeTypes[ext] || "application/octet-stream",
-    },
+  const uploaded = await getAiProvider().uploadFile({
+    filePath,
+    displayName: filename,
+    mimeType: mimeTypes[ext] || "application/octet-stream",
   });
   const geminiFileUri = uploaded.uri;
 

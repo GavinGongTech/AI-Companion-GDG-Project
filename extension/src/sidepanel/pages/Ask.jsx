@@ -47,6 +47,36 @@ export function Ask() {
     }
   }
 
+  async function handleScreenshot() {
+    chrome.tabs.captureVisibleTab(null, { format: "jpeg", quality: 80 }, async (dataUrl) => {
+      if (chrome.runtime.lastError) {
+        setError(chrome.runtime.lastError.message);
+        return;
+      }
+      
+      const base64Image = dataUrl.split(",")[1];
+      setLoading(true);
+      setError(null);
+      setResponse(null);
+      setQuestion(""); // clear input since we are analyzing image
+      
+      try {
+        const data = await apiFetch("/api/v1/analyze", {
+          method: "POST",
+          body: JSON.stringify({ imageBase64: base64Image, courseId: courseId || undefined }),
+        });
+        setResponse(data);
+        if (data.question) {
+          setQuestion(data.question); // Show OCR'd text in input
+        }
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    });
+  }
+
   return (
     <div className={styles.stack}>
       <div className={styles.section}>
@@ -83,7 +113,12 @@ export function Ask() {
           >
             Use Selected Text
           </button>
-          <button className={styles.secondaryButton} type="button">
+          <button 
+            className={styles.secondaryButton} 
+            type="button"
+            onClick={handleScreenshot}
+            disabled={loading}
+          >
             Screenshot
           </button>
         </div>

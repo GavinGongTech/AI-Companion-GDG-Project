@@ -7,9 +7,13 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint . --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@study-flow/client": "file:../packages/client",
+    "@study-flow/shared": "file:../packages/shared",
     "cytoscape": "^3.31.0",
     "firebase": "^12.12.0",
     "katex": "^0.16.44",
@@ -19,11 +23,17 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/react": "^19.2.3",
+    "@types/react-dom": "^19.2.2",
+    "@typescript-eslint/eslint-plugin": "^8.58.2",
+    "@typescript-eslint/parser": "^8.58.2",
     "@vitejs/plugin-react": "^6.0.1",
     "eslint": "^10.1.0",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.5.0",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.4",
     "vite": "^8.0.8"
   }
 }

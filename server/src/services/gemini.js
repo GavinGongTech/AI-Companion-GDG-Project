@@ -1,23 +1,14 @@
-import { GoogleGenAI } from "@google/genai";
 import { env } from "../env.js";
+import { graphifyPromptPart } from "./graphify.js";
+import { getAiProvider } from "../ai/index.js";
+import { geminiProvider } from "../ai/geminiProvider.js";
 
-const PRIMARY_MODEL = env.geminiModel;
-const FAST_MODEL = env.geminiFastModel;
+export const ai = geminiProvider.client;
 
-/**
- * Parse JSON from Gemini response text with retry.
- * Gemini sometimes wraps JSON in markdown fences — strip them before parsing.
- */
-function parseJsonResponse(text) {
-  const cleaned = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
-  try {
-    return JSON.parse(cleaned);
-  } catch (e) {
-    throw new Error(`Gemini returned invalid JSON: ${e.message} | responseLength: ${cleaned.length}`, { cause: e });
-  }
+function graphify(text, options) {
+  if (!env.graphifyEnabled) return String(text ?? "");
+  return graphifyPromptPart(text, options);
 }
-
-export const ai = new GoogleGenAI({ apiKey: env.geminiApiKey });
 
 function buildSmgSection(smg, { label, includeInteractions = false, includeDifficulty = null } = {}) {
   if (!smg) return "";
@@ -41,14 +32,23 @@ function buildSmgSection(smg, { label, includeInteractions = false, includeDiffi
  * @returns {Promise<{ conceptNode: string, errorType: string, confidence: number }>}
  */
 export async function classifyConcept(question, answer) {
+  const compactQuestion = graphify(question, {
+    anchorText: question,
+    maxTokens: env.graphifyQuestionTokens,
+  });
+  const compactAnswer = graphify(answer, {
+    anchorText: question,
+    maxTokens: env.graphifyAnswerTokens,
+  });
+
   const prompt = `You are a misconception classifier for a student study tool.
 Given a student's question and the AI-generated answer, classify the interaction.
 
 STUDENT QUESTION:
-${question}
+${compactQuestion}
 
 AI ANSWER:
-${answer}
+${compactAnswer}
 
 Classify this interaction. The conceptNode should be a snake_case identifier that is specific enough to track over time (e.g. "derivatives_chain_rule", not just "math").
 
@@ -59,15 +59,11 @@ Respond with ONLY a JSON object:
   "confidence": <number between 0 and 1>
 }`;
 
-  const result = await ai.models.generateContent({
-    model: FAST_MODEL,
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      temperature: 0.0,
-    },
+  return getAiProvider().generateJson({
+    model: "fast",
+    prompt,
+    temperature: 0.0,
   });
-  return parseJsonResponse(result.text);
 }
 
 /**
@@ -80,6 +76,15 @@ Respond with ONLY a JSON object:
  * @returns {Promise<{ solution: string, mainConcept: string, relevantLecture: string, keyFormulas: string[], personalizedCallout: string }>}
  */
 export async function explainConcept(question, context, smgHistory = null) {
+  const compactQuestion = graphify(question, {
+    anchorText: question,
+    maxTokens: env.graphifyQuestionTokens,
+  });
+  const compactContext = graphify(context, {
+    anchorText: question,
+    maxTokens: env.graphifyContextTokens,
+  });
+
   const smgSection = smgHistory
     ? buildSmgSection(smgHistory, { label: "STUDENT HISTORY FOR THIS CONCEPT", includeInteractions: true }) +
       "\nUse this history to add a personalized callout addressing their specific weaknesses."
@@ -89,30 +94,26 @@ export async function explainConcept(question, context, smgHistory = null) {
 Use the course material context below to give a clear, detailed explanation.
 
 COURSE MATERIAL CONTEXT:
-${context || "No course materials available — use your general knowledge."}
+${compactContext || "No course materials available — use your general knowledge."}
 ${smgSection}
 
 STUDENT QUESTION:
-${question}
+${compactQuestion}
 
 Respond with ONLY a JSON object:
 {
-  "solution": "<clear, step-by-step explanation>",
+  "solution": "<clear, step-by-step explanation formatted in markdown. ALWAYS wrap all math in $ for inline and $$ for display>",
   "mainConcept": "<the primary concept or topic>",
   "relevantLecture": "<which course material section is most relevant, or 'General knowledge'>",
-  "keyFormulas": ["<any key formulas or definitions used, as strings>"],
+  "keyFormulas": ["<any key formulas or definitions used, formatted in markdown with $ or $$>"],
   "personalizedCallout": "<a personalized note based on the student's history, or empty string if no history>"
 }`;
 
-  const result = await ai.models.generateContent({
-    model: PRIMARY_MODEL,
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      temperature: 0.4,
-    },
+  return getAiProvider().generateJson({
+    model: "primary",
+    prompt,
+    temperature: 0.4,
   });
-  return parseJsonResponse(result.text);
 }
 
 /**
@@ -126,9 +127,16 @@ Respond with ONLY a JSON object:
  * @returns {Promise<{ questions: Array<{ question: string, options: string[], answer: number, explanation: string, difficulty: string, conceptNode: string }> }>}
  */
 export async function generateQuiz(topic, chunks, smgData = null, count = 1) {
-  const material = chunks.length > 0
+  const compactTopic = graphify(topic, {
+    anchorText: topic,
+    maxTokens: env.graphifyQuestionTokens,
+  });
+  const rawMaterial = chunks.length > 0
     ? chunks.join("\n---\n")
     : "No specific course material provided.";
+  const material = chunks.length > 0
+    ? graphify(rawMaterial, { anchorText: topic, maxTokens: env.graphifyMaterialTokens })
+    : rawMaterial;
 
   let difficultyHint = "medium";
   if (smgData) {
@@ -144,7 +152,7 @@ export async function generateQuiz(topic, chunks, smgData = null, count = 1) {
 
   const prompt = `You are an AI study companion generating quiz questions styled like a professor's exam.
 
-TOPIC: ${topic}
+TOPIC: ${compactTopic}
 
 COURSE MATERIAL:
 ${material}
@@ -166,15 +174,11 @@ Respond with ONLY a JSON object:
   ]
 }`;
 
-  const result = await ai.models.generateContent({
-    model: PRIMARY_MODEL,
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      temperature: 0.7,
-    },
+  return getAiProvider().generateJson({
+    model: "primary",
+    prompt,
+    temperature: 0.7,
   });
-  return parseJsonResponse(result.text);
 }
 
 /**
@@ -187,6 +191,15 @@ Respond with ONLY a JSON object:
  * @returns {Promise<AsyncIterable>} Pino-compatible stream from generateContentStream
  */
 export async function explainConceptStream(question, context, smgHistory = null) {
+  const compactQuestion = graphify(question, {
+    anchorText: question,
+    maxTokens: env.graphifyQuestionTokens,
+  });
+  const compactContext = graphify(context, {
+    anchorText: question,
+    maxTokens: env.graphifyContextTokens,
+  });
+
   const smgSection = smgHistory
     ? buildSmgSection(smgHistory, { label: "STUDENT HISTORY", includeInteractions: true }) +
       "\nUse this to personalize your response."
@@ -195,17 +208,16 @@ export async function explainConceptStream(question, context, smgHistory = null)
   const prompt = `You are an AI study companion. Explain the following in a clear, structured way.
 
 COURSE MATERIAL CONTEXT:
-${context || 'No course materials — use general knowledge.'}
+${compactContext || "No course materials — use general knowledge."}
 ${smgSection}
 
-STUDENT QUESTION: ${question}
+STUDENT QUESTION: ${compactQuestion}
 
 Give a clear, step-by-step explanation. Highlight key formulas. Be concise but thorough.`
 
-  const stream = await ai.models.generateContentStream({
-    model: PRIMARY_MODEL,
-    contents: prompt,
-    config: { temperature: 0.4 },
-  })
-  return stream
+  return getAiProvider().streamText({
+    model: "primary",
+    prompt,
+    temperature: 0.4,
+  });
 }

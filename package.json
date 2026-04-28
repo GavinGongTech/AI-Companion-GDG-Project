@@ -2,21 +2,26 @@
   "name": "gdg-monorepo",
   "private": true,
   "type": "module",
+  "packageManager": "bun@1.3.11",
   "workspaces": [
+    "packages/*",
     "web",
     "extension",
     "server"
   ],
   "scripts": {
-    "dev": "bun run --cwd web dev",
+    "setup": "bun run ./scripts/setup.mjs",
+    "doctor": "bun run ./scripts/doctor.mjs",
+    "dev": "bun run ./scripts/workspace-runner.mjs dev",
     "dev:web": "bun run --cwd web dev",
     "dev:extension": "bun run --cwd extension dev",
     "dev:server": "bun run --cwd server dev",
-    "dev:all": "concurrently -n web,ext,srv -c blue,green,magenta \"bun run --cwd web dev\" \"bun run --cwd extension dev\" \"bun run --cwd server dev\"",
-    "build": "bun run --cwd web build && bun run --cwd extension build",
-    "lint": "bun run --cwd web lint && bun run --cwd extension lint && bun run --cwd server lint"
-  },
-  "devDependencies": {
-    "concurrently": "^9.2.1"
+    "dev:all": "bun run ./scripts/workspace-runner.mjs dev",
+    "build": "bun run ./scripts/workspace-runner.mjs build && bun run package:extension",
+    "package:extension": "bun run ./scripts/package-extension.mjs",
+    "lint": "bun run ./scripts/workspace-runner.mjs lint",
+    "typecheck": "bun run ./scripts/workspace-runner.mjs typecheck",
+    "test": "bun run ./scripts/workspace-runner.mjs test",
+    "check": "bun run ./scripts/workspace-runner.mjs check"
   }
 }

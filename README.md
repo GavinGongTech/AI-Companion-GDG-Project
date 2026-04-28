@@ -162,6 +162,10 @@ Edit `server/.env`:
 GEMINI_API_KEY=your-gemini-key
 GOOGLE_APPLICATION_CREDENTIALS=/path/to/firebase-service-account.json
 FIREBASE_PROJECT_ID=your-project-id
+# Optional token-usage controls (enabled by default)
+GRAPHIFY_ENABLED=true
+GRAPHIFY_CONTEXT_MAX_TOKENS=1200
+GRAPHIFY_ANSWER_MAX_TOKENS=450
 ```
 
 ### 3. Start the API server
