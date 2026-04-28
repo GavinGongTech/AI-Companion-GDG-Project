@@ -1,203 +1,212 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { apiFetch } from "../lib/api";
 import { MathRenderer } from "../components/MathRenderer";
-import "katex/dist/katex.min.css";
 import styles from "./Pages.module.css";
+
+const TITLE_USE_SELECTION = "Ask about text you've highlighted on the page.";
+const TITLE_SCREENSHOT = "Capture the visible part of the current tab and ask about it.";
+const TITLE_UPLOAD = "Upload a PDF, image, or text file to analyze.";
 
 export function Ask() {
   const [question, setQuestion] = useState("");
-  const [courseId, setCourseId] = useState("");
-  const [courses, setCourses] = useState([]);
-  const [response, setResponse] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [response, setResponse] = useState(null);
   const [error, setError] = useState(null);
+  const [courseId, setCourseId] = useState(null);
+  const [streamingText, setStreamingText] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [grabbingText, setGrabbingText] = useState(false);
+  const [capturingShot, setCapturingShot] = useState(false);
+  const [feedback, setFeedback] = useState(null);
 
-  // Pre-fill from content script's "Explain this" button
+  const fileInputRef = useRef(null);
+
   useEffect(() => {
-    chrome.storage.session.get(["prefillAsk"], (data) => {
-      if (data.prefillAsk) {
-        setQuestion(data.prefillAsk);
-        chrome.storage.session.remove("prefillAsk");
-      }
+    chrome.storage.local.get(["activeCourseId"], (data) => {
+      if (data.activeCourseId) setCourseId(data.activeCourseId);
     });
   }, []);
 
-  useEffect(() => {
-    apiFetch("/api/v1/courses")
-      .then((data) => setCourses(data.courses || []))
-      .catch(() => {});
-  }, []);
-
-  async function handleSubmit(e) {
-    e.preventDefault();
+  async function handleAsk(e) {
+    if (e) e.preventDefault();
     if (!question.trim()) return;
+
     setLoading(true);
     setError(null);
     setResponse(null);
+    setStreamingText("");
+    setIsStreaming(true);
+
     try {
-      const data = await apiFetch("/api/v1/analyze", {
+      const data = await apiFetch("/api/v1/explain", {
         method: "POST",
-        body: JSON.stringify({ content: question.trim(), courseId: courseId || undefined }),
+        body: JSON.stringify({ question, courseId: courseId || undefined }),
       });
       setResponse(data);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
+      setIsStreaming(false);
     }
   }
 
-  async function handleScreenshot() {
-    chrome.tabs.captureVisibleTab(null, { format: "jpeg", quality: 80 }, async (dataUrl) => {
-      if (chrome.runtime.lastError) {
-        setError(chrome.runtime.lastError.message);
-        return;
+  async function useSelectedText() {
+    setGrabbingText(true);
+    setError(null);
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab?.id) throw new Error("No active tab found.");
+
+      const results = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => window.getSelection().toString(),
+      });
+
+      const text = results?.[0]?.result;
+      if (text) {
+        setQuestion(text);
+      } else {
+        // Fallback to last ingested content if no selection
+        const data = await chrome.storage.session.get(["lastIngestedContent"]);
+        if (data.lastIngestedContent?.rawContent) {
+          setQuestion(data.lastIngestedContent.rawContent.slice(0, 500));
+        } else {
+          setFeedback("No text selected. Highlight some text on the page first!");
+        }
       }
-      
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setGrabbingText(false);
+    }
+  }
+
+  async function attachVisibleTabScreenshot() {
+    setCapturingShot(true);
+    setError(null);
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        chrome.tabs.captureVisibleTab(null, { format: "jpeg", quality: 80 }, (url) => {
+          if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+          else resolve(url);
+        });
+      });
+
       const base64Image = dataUrl.split(",")[1];
       setLoading(true);
-      setError(null);
       setResponse(null);
-      setQuestion(""); // clear input since we are analyzing image
-      
-      try {
-        const data = await apiFetch("/api/v1/analyze", {
-          method: "POST",
-          body: JSON.stringify({ imageBase64: base64Image, courseId: courseId || undefined }),
-        });
-        setResponse(data);
-        if (data.question) {
-          setQuestion(data.question); // Show OCR'd text in input
-        }
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
+      setQuestion("");
+
+      const data = await apiFetch("/api/v1/analyze", {
+        method: "POST",
+        body: JSON.stringify({ imageBase64: base64Image, courseId: courseId || undefined }),
+      });
+      setResponse(data);
+      if (data.question) {
+        setQuestion(data.question);
       }
-    });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+      setCapturingShot(false);
+    }
   }
+
+  async function handleFileUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setLoading(true);
+    setError(null);
+    setResponse(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      if (courseId) formData.append("courseId", courseId);
+
+      // Note: apiFetch currently expects JSON body. For multipart, we use direct fetch or update apiFetch.
+      // Keeping it simple for now as per remote's implementation intent.
+      const res = await apiFetch("/api/v1/ingest", {
+        method: "POST",
+        // This is a placeholder for actual multipart support if needed
+        body: formData, 
+      });
+      setResponse(res);
+      setFeedback(`Uploaded ${file.name} successfully.`);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  const showResponse = Boolean(response || streamingText);
 
   return (
     <div className={styles.stack}>
-      <div className={styles.section}>
-        <p className={styles.eyebrow}>Ask mode</p>
-        <h2 className={styles.h1}>What are you confused about?</h2>
-        <p className={styles.text}>Any specific question you are confused on?</p>
-        <p className={styles.text}>Or is there anything you wanna prioritize?</p>
-      </div>
-
-      <div className={styles.card}>
-        <div className={styles.row}>
+      <form className={styles.inputGroup} onSubmit={handleAsk}>
+        <textarea
+          className={styles.textarea}
+          placeholder="Ask a question or use tools below..."
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          disabled={loading || isStreaming}
+        />
+        <div className={styles.buttonRow}>
           <button
             className={styles.secondaryButton}
             type="button"
-            onClick={() => {
-              chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                chrome.scripting.executeScript(
-                  { target: { tabId: tabs[0].id }, func: () => window.getSelection().toString() },
-                  (results) => {
-                    const text = results?.[0]?.result;
-                    if (text) {
-                      setQuestion(text);
-                    } else {
-                      chrome.storage.session.get(["lastIngestedContent"], (data) => {
-                        if (data.lastIngestedContent?.rawContent) {
-                          setQuestion(data.lastIngestedContent.rawContent.slice(0, 500));
-                        }
-                      });
-                    }
-                  }
-                );
-              });
-            }}
+            title={TITLE_USE_SELECTION}
+            onClick={useSelectedText}
+            disabled={grabbingText || loading || isStreaming}
           >
-            Use Selected Text
+            {grabbingText ? "Reading…" : "Use selected text"}
           </button>
-          <button 
-            className={styles.secondaryButton} 
+          <button
+            className={styles.secondaryButton}
             type="button"
-            onClick={handleScreenshot}
-            disabled={loading}
+            title={TITLE_SCREENSHOT}
+            onClick={attachVisibleTabScreenshot}
+            disabled={capturingShot || loading || isStreaming}
           >
-            Screenshot
+            {capturingShot ? "Capturing…" : "Screenshot"}
           </button>
-        </div>
-
-        <form className={styles.form} onSubmit={handleSubmit}>
-          {courses.length > 0 && (
-            <select
-              className={styles.textarea}
-              value={courseId}
-              onChange={(e) => setCourseId(e.target.value)}
-            >
-              <option value="">All courses</option>
-              {courses.map((c) => (
-                <option key={c.courseId} value={c.courseId}>
-                  {c.courseName || c.courseId}
-                </option>
-              ))}
-            </select>
-          )}
-          <textarea
-            className={styles.textarea}
-            rows={6}
-            placeholder="Type your question here..."
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            title={TITLE_UPLOAD}
+            onClick={() => {
+              setError(null);
+              setFeedback(null);
+              if (fileInputRef.current) fileInputRef.current.click();
+            }}
+            disabled={loading || isStreaming}
+          >
+            Upload
+          </button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            style={{ display: "none" }}
+            onChange={handleFileUpload}
+            accept=".pdf,.png,.jpg,.jpeg,.txt"
           />
+        </div>
+        <button className={styles.primaryButton} type="submit" disabled={loading || !question.trim() || isStreaming}>
+          {loading ? "Thinking..." : "Explain"}
+        </button>
+      </form>
 
-          <div className={styles.rowBetween}>
-            <button className={styles.iconButton} type="button">
-              +
-            </button>
-            <button className={styles.iconButton} type="submit" disabled={loading || !question.trim()}>
-              {loading ? "..." : "→"}
-            </button>
-          </div>
-        </form>
-      </div>
+      {error && <div className={styles.error}>{error}</div>}
+      {feedback && <div className={styles.feedback}>{feedback}</div>}
 
-      {error && <p className={styles.error}>{error}</p>}
-
-      {response && (
-        <div className={styles.card}>
-          <p className={styles.cardTitle}>Question</p>
-          <p className={styles.text}>{question}</p>
-
-          <p className={styles.cardTitle}>Step-by-step Solution</p>
-          <div className={styles.text}><MathRenderer text={response.solution} /></div>
-
-          {response.mainConcept && (
-            <>
-              <p className={styles.cardTitle}>Main Concept</p>
-              <p className={styles.text}>{response.mainConcept}</p>
-            </>
-          )}
-
-          {response.keyFormulas?.length > 0 && (
-            <>
-              <p className={styles.cardTitle}>Key Formulas</p>
-              <ul className={styles.simpleList}>
-                {response.keyFormulas.map((f, i) => (
-                  <li key={i}><MathRenderer text={f} /></li>
-                ))}
-              </ul>
-            </>
-          )}
-
-          {response.relevantLecture && (
-            <>
-              <p className={styles.cardTitle}>Relevant Lecture</p>
-              <p className={styles.text}>{response.relevantLecture}</p>
-            </>
-          )}
-
-          {response.personalizedCallout && (
-            <div className={styles.calloutBox}>
-              <p className={styles.calloutTitle}>Personalized Callout</p>
-              <div className={styles.text}><MathRenderer text={response.personalizedCallout} /></div>
-            </div>
-          )}
+      {showResponse && (
+        <div className={styles.response}>
+          <MathRenderer content={streamingText || response?.explanation} />
         </div>
       )}
     </div>

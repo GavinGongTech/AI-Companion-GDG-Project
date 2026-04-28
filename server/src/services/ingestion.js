@@ -92,6 +92,14 @@ export async function ingestText(uid, courseId, text, metadata = {}) {
   if (batchCount > 0) {
     await batch.commit();
   }
+
+  // Ensure course doc exists so it shows up in the courses list
+  const courseRef = db.collection("users").doc(uid)
+    .collection("courses").doc(courseId);
+  await courseRef.set({
+    lastIngestedAt: FieldValue.serverTimestamp(),
+    platform: metadata.source || "content-script",
+  }, { merge: true });
 }
 
 /**

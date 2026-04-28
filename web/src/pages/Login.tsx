@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState, type FormEvent } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   GoogleAuthProvider,
   signInWithEmailAndPassword,
@@ -8,21 +8,51 @@ import {
 import { trackClientEvent } from "../lib/api";
 import { auth, hasFirebaseConfig } from "../lib/firebase";
 import styles from "./AuthPages.module.css";
+import { getExtensionIdFromSearch, sendAuthToExtension } from "../lib/extensionBridge";
 
 const googleProvider = new GoogleAuthProvider();
 
 function getErrorMessage(error: unknown): string {
-  return error instanceof Error
-    ? error.message
-    : "An unexpected error occurred.";
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  return "An unexpected error occurred.";
 }
 
 export function Login() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
+  const extensionId = getExtensionIdFromSearch(searchParams.toString());
+  const extensionSearch = extensionId ? `?extensionId=${encodeURIComponent(extensionId)}` : "";
+
+  async function completeExtensionAuth() {
+    if (!extensionId) {
+      return true;
+    }
+
+    setStatus("Connecting your website session to the extension...");
+    const result = await sendAuthToExtension(extensionId);
+    if (!result.ok) {
+      setError(result.error || "Failed to connect to extension");
+      setStatus("");
+      return false;
+    }
+
+    setStatus("Extension connected. You can return to Study Flow.");
+    return true;
+  }
+
+  useEffect(() => {
+    if (!extensionId || !auth?.currentUser) {
+      return;
+    }
+
+    void completeExtensionAuth();
+  }, [extensionId]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -42,7 +72,13 @@ export function Login() {
         content: "login",
         meta: { provider: "password" },
       }).catch(() => {});
-      navigate("/dashboard");
+      
+      if (!(await completeExtensionAuth())) {
+        return;
+      }
+      if (!extensionId) {
+        navigate("/dashboard");
+      }
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
     } finally {
@@ -66,7 +102,13 @@ export function Login() {
         content: "login",
         meta: { provider: "google" },
       }).catch(() => {});
-      navigate("/dashboard");
+      
+      if (!(await completeExtensionAuth())) {
+        return;
+      }
+      if (!extensionId) {
+        navigate("/dashboard");
+      }
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
     } finally {
@@ -80,9 +122,12 @@ export function Login() {
         <p className={styles.eyebrow}>Welcome back</p>
         <h1 className={styles.title}>Log in</h1>
         <p className={styles.lede}>
-          Sign in with your email or Google account to continue studying.
+          {extensionId
+            ? "Sign in here and we’ll connect your website session back to the extension."
+            : "Sign in with your email or Google account to continue studying."}
         </p>
         {error && <p className={styles.error}>{error}</p>}
+        {status && <p className={styles.note}>{status}</p>}
         <form className={styles.form} onSubmit={onSubmit}>
           <label className={styles.field}>
             <span className={styles.label}>Email</span>
@@ -131,7 +176,7 @@ export function Login() {
         </button>
         <p className={styles.footerLine}>
           No account?{" "}
-          <Link to="/signup" className={styles.inlineLink}>
+          <Link to={`/signup${extensionSearch}`} className={styles.inlineLink}>
             Sign up
           </Link>
         </p>

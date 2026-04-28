@@ -9,10 +9,34 @@
 }
 
 .header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
   padding: 18px 18px 14px;
   border-bottom: 1px solid var(--border-subtle);
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(10px);
+}
+
+.signOut {
+  flex-shrink: 0;
+  margin-top: 2px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-muted);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.signOut:hover {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+  background: #fff;
 }
 
 .kicker {

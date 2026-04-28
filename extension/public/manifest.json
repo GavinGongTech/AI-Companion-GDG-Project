@@ -1,34 +1,45 @@
-  {
+{
   "manifest_version": 3,
-  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4EE/sacM3YZoPs23g+UWLx7WueNbi5xodlOy0MkMHDQdcCsR3hc+y1FQFQca3+e6DLBJ2i+6EJVtaUJ+dMAO6ndjfh6kpYRxqtWHRMIuQzh2JLxjrXTj7AQIHeNG6FsJjQauDo7M6BbqJAAOPQ8Pw/e+qGX8cbsvCj0paR9SBCvpUKrxX8pPgBGrZnqmxPgGsZOtcBYffazWDUumEwP3I5bvZY1Jz8viLt0/ppPK3gl/Ry9ijfLf1K3KpQdpglWaETtOsRtiSlpecBt5OGow/rIoDMOJX0bGkI4fqpV3oLsVQ3yYRoR+lkeCfsP5mQS8Pe8MDUIQJW2gnwIBUFwftwIDAQAB",
-  "name": "Study Flow",
-  "version": "0.0.1",
-  "description": "Contextual math study assistant — Ask, Quiz, and course-aware help.",
+  "name": "Study Flow AI Companion",
+  "version": "1.0.0",
+  "description": "Your AI-powered study companion that understands what you are learning.",
   "action": {
     "default_title": "Open Study Flow"
   },
   "side_panel": {
     "default_path": "sidepanel.html"
   },
+  "icons": {
+    "16": "favicon.svg",
+    "48": "favicon.svg",
+    "128": "favicon.svg"
+  },
   "background": {
     "service_worker": "background.js",
     "type": "module"
   },
-  "permissions": ["storage", "sidePanel", "activeTab", "scripting", "identity", "alarms"],
+  "permissions": ["storage", "sidePanel", "activeTab", "scripting", "identity", "alarms", "tabs"],
   "oauth2": {
-    "client_id": "966291933098-1kofpfa4m6mc0l0i7edem7sajii0jrco.apps.googleusercontent.com",
+    "client_id": "966291933098-6ikkt690ieircck9sn321nh7v64952cs.apps.googleusercontent.com",
     "scopes": ["https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"]
   },
-  "host_permissions": ["http://localhost:3000/*", "http://127.0.0.1:3000/*", "<all_urls>"],
+  "externally_connectable": {
+    "matches": ["http://localhost:5173/*", "http://127.0.0.1:5173/*"]
+  },
+  "host_permissions": [
+    "<all_urls>",
+    "http://localhost:3000/*",
+    "http://127.0.0.1:3000/*"
+  ],
   "content_scripts": [
     {
       "matches": [
-        "*://*.brightspace.com/*",
-        "*://brightspace.nyu.edu/*",
-        "*://*.gradescope.com/*"
+        "http://*/*",
+        "https://*/*"
       ],
       "js": ["content.js"],
-      "run_at": "document_idle"
+      "run_at": "document_start",
+      "all_frames": true
     }
   ]
 }

@@ -16,14 +16,20 @@ export function Course() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchCourses = () => {
+    setLoading(true);
+    setError(null);
     void apiFetchParsed("/api/v1/courses", coursesResponseSchema)
       .then((data) => setCourses(data.courses || []))
       .catch((err) => setError(getErrorMessage(err)))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchCourses();
   }, []);
 
-  if (loading) {
+  if (loading && courses.length === 0) {
     return (
       <div className={styles.center}>
         <div className={styles.spinner} aria-hidden />
@@ -35,7 +41,17 @@ export function Course() {
   return (
     <div className={styles.stack}>
       <div className={styles.section}>
-        <p className={styles.eyebrow}>My Course</p>
+        <div className={styles.rowBetween}>
+          <p className={styles.eyebrow}>My Course</p>
+          <button
+            type="button"
+            className={styles.linkButton}
+            onClick={fetchCourses}
+            disabled={loading}
+          >
+            {loading ? "Refreshing..." : "Refresh"}
+          </button>
+        </div>
         <h2 className={styles.h1}>Current course info</h2>
         <p className={styles.text}>
           Files, deadlines, and concepts that need attention.
@@ -49,11 +65,11 @@ export function Course() {
           <CourseCard key={course.courseId} course={course} />
         ))
       ) : (
-        !error && (
+        !error && !loading && (
           <div className={styles.card}>
             <p className={styles.muted}>
-              No courses yet. Ingest course materials via the web dashboard to get
-              started.
+              No courses yet. Ingest course materials via the web dashboard or
+              extension to get started.
             </p>
           </div>
         )
@@ -68,17 +84,22 @@ interface CourseCardProps {
 
 function CourseCard({ course }: CourseCardProps) {
   const [details, setDetails] = useState<CourseDetailsResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     if (!expanded) return;
     if (details) return;
+    setLoading(true);
+    setError(null);
     void apiFetchParsed(
       `/api/v1/courses/${course.courseId}`,
       courseDetailsResponseSchema,
     )
       .then(setDetails)
-      .catch(() => {});
+      .catch((err) => setError(getErrorMessage(err)))
+      .finally(() => setLoading(false));
   }, [expanded, course.courseId, details]);
 
   return (
@@ -96,24 +117,35 @@ function CourseCard({ course }: CourseCardProps) {
         </button>
       </div>
 
-      {expanded && details && (
-        <>
-          {details.ingestedDocs?.length > 0 && (
+      {expanded && (
+        <div className={styles.stack} style={{ gap: "12px", marginTop: "4px" }}>
+          {loading && (
+            <div className={styles.feedbackBusy}>
+              <div className={styles.feedbackBusyDot} />
+              Loading details...
+            </div>
+          )}
+          {error && <p className={styles.error}>{error}</p>}
+          {details && (
             <>
-              <p className={styles.cardTitle}>Ingested Documents</p>
-              <ul className={styles.simpleList}>
-                {details.ingestedDocs.map((doc) => (
-                  <li key={doc.fileId}>
-                    {doc.filename || doc.fileId}
-                  </li>
-                ))}
-              </ul>
+              {details.ingestedDocs?.length > 0 && (
+                <div>
+                  <p className={styles.cardTitle} style={{ marginBottom: "8px" }}>
+                    Ingested Documents
+                  </p>
+                  <ul className={styles.simpleList}>
+                    {details.ingestedDocs.map((doc) => (
+                      <li key={doc.fileId}>{doc.filename || doc.fileId}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <p className={styles.muted}>
+                {details.chunkCount ?? 0} chunks indexed
+              </p>
             </>
           )}
-          <p className={styles.muted}>
-            {details.chunkCount ?? 0} chunks indexed
-          </p>
-        </>
+        </div>
       )}
     </div>
   );
