@@ -19,6 +19,7 @@
   },
   "include": [
     "src",
-    "vite.config.js"
+    "vite.config.js",
+    "vitest.config.ts"
   ]
 }

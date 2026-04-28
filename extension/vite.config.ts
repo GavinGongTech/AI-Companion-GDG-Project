@@ -57,8 +57,8 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       input: {
         sidepanel: resolve(__dirname, "sidepanel.html"),
-        background: resolve(__dirname, "src/background.js"),
-        content: resolve(__dirname, "src/content.js"),
+        background: resolve(__dirname, "src/background.ts"),
+        content: resolve(__dirname, "src/content.ts"),
       },
       output: {
         entryFileNames: "[name].js",

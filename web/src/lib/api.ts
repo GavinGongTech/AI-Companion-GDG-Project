@@ -1,16 +1,15 @@
 import {
   createFirebaseApiClient,
   type ApiFetchOptions,
+  fetchGraph as clientFetchGraph,
+  fetchDrillQueue as clientFetchDrillQueue,
+  fetchRecentEvents as clientFetchRecentEvents,
+  fetchGamification as clientFetchGamification,
+  trackClientEvent as clientTrackClientEvent,
+  ingestTextContent as clientIngestTextContent,
+  uploadIngestFile as clientUploadIngestFile,
 } from "@study-flow/client";
 import {
-  clientEventResponseSchema,
-  drillQueueResponseSchema,
-  eventsResponseSchema,
-  graphResponseSchema,
-  ingestTextRequestSchema,
-  ingestTextResponseSchema,
-  ingestUploadResponseSchema,
-  trackEventRequestSchema,
   type ClientEventResponse,
   type DrillQueueResponse,
   type EventsResponse,
@@ -20,7 +19,6 @@ import {
   type IngestUploadResponse,
   type TrackEventRequest,
   type GamificationResponse,
-  gamificationResponseSchema,
 } from "@study-flow/shared";
 import { authState, clientMode } from "./firebase";
 
@@ -40,58 +38,40 @@ export function apiFetch<T>(
 export async function fetchGraph(
   options?: ApiFetchOptions,
 ): Promise<GraphResponse> {
-  return graphResponseSchema.parse(await apiFetch("/api/v1/graph", options));
+  return clientFetchGraph(apiClient, options);
 }
 
 export async function fetchDrillQueue(
   options?: ApiFetchOptions,
 ): Promise<DrillQueueResponse> {
-  return drillQueueResponseSchema.parse(
-    await apiFetch("/api/v1/graph/drill", options),
-  );
+  return clientFetchDrillQueue(apiClient, options);
 }
 
 export async function fetchRecentEvents(
   limit = 20,
   options?: ApiFetchOptions,
 ): Promise<EventsResponse> {
-  return eventsResponseSchema.parse(
-    await apiFetch(`/api/v1/events?limit=${limit}`, options),
-  );
+  return clientFetchRecentEvents(apiClient, limit, options);
 }
 
 export async function fetchGamification(
   options?: ApiFetchOptions,
 ): Promise<GamificationResponse> {
-  return gamificationResponseSchema.parse(
-    await apiFetch("/api/v1/gamification", options),
-  );
+  return clientFetchGamification(apiClient, options);
 }
 
 export async function trackClientEvent(
   payload: TrackEventRequest,
   options?: ApiFetchOptions,
 ): Promise<ClientEventResponse> {
-  return clientEventResponseSchema.parse(
-    await apiFetch("/api/v1/events/track", {
-      method: "POST",
-      body: JSON.stringify(trackEventRequestSchema.parse(payload)),
-      ...options,
-    }),
-  );
+  return clientTrackClientEvent(apiClient, payload, options);
 }
 
 export async function ingestTextContent(
   payload: IngestTextRequest,
   options?: ApiFetchOptions,
 ): Promise<IngestTextResponse> {
-  return ingestTextResponseSchema.parse(
-    await apiFetch("/api/v1/ingest/text", {
-      method: "POST",
-      body: JSON.stringify(ingestTextRequestSchema.parse(payload)),
-      ...options,
-    }),
-  );
+  return clientIngestTextContent(apiClient, payload, options);
 }
 
 export async function uploadIngestFile(
@@ -99,15 +79,5 @@ export async function uploadIngestFile(
   courseId: string,
   options?: ApiFetchOptions,
 ): Promise<IngestUploadResponse> {
-  const body = new FormData();
-  body.append("file", file);
-  body.append("courseId", courseId);
-
-  return ingestUploadResponseSchema.parse(
-    await apiFetch("/api/v1/ingest/upload", {
-      method: "POST",
-      body,
-      ...options,
-    }),
-  );
+  return clientUploadIngestFile(apiClient, file, courseId, options);
 }

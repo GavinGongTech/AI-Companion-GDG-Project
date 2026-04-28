@@ -69,7 +69,7 @@ describe("background runtime", () => {
     const sessionStorage = createStorage({ [STORAGE_KEYS.firebaseIdToken]: "token-123" });
     const fetchImpl = mock(() =>
       Promise.resolve(
-        new Response(JSON.stringify({ ok: true }), {
+        new Response(JSON.stringify({ ok: true, courseId: "calc-101", ingestedAt: new Date().toISOString() }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }),
@@ -95,14 +95,16 @@ describe("background runtime", () => {
       "http://localhost:3000/api/v1/ingest/text",
       expect.objectContaining({
         method: "POST",
-        headers: expect.objectContaining({
-          Authorization: "Bearer token-123",
-          "Content-Type": "application/json",
-        }),
+        headers: expect.any(Headers),
       }),
     );
 
-    const requestInit = (fetchImpl.mock.calls as unknown as any)[0]?.[1] as RequestInit;
+    const callArgs = (fetchImpl.mock.calls as any)[0];
+    const headers = callArgs[1].headers as Headers;
+    expect(headers.get("Authorization")).toBe("Bearer token-123");
+    expect(headers.get("Content-Type")).toBe("application/json");
+
+    const requestInit = callArgs[1] as RequestInit;
     expect(JSON.parse(String(requestInit.body))).toEqual({
       courseId: "calc-101",
       rawContent: "Integral practice set",

@@ -4,6 +4,8 @@ export interface IngestPagePayload {
   rawContent: string;
   courseName: string;
   sourcePlatform: SupportedContentPlatform;
+  pdfUrl?: string;
+  filename?: string;
 }
 
 export interface OpenAskPayload {
@@ -23,6 +25,7 @@ export interface ExtensionRuntimeResponse {
 export const STORAGE_KEYS = {
   apiUrl: "apiUrl",
   firebaseIdToken: "firebaseIdToken",
+  authUser: "authUser",
   lastIngestedContent: "lastIngestedContent",
   navigateTo: "navigateTo",
   prefillAsk: "prefillAsk",

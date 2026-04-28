@@ -1,8 +1,5 @@
-import {
-  ingestTextRequestSchema,
-  normalizeApiUrl,
-  type IngestTextRequest,
-} from "@study-flow/shared";
+import { createApiClient, ingestTextContent } from "@study-flow/client";
+import { type IngestTextRequest, normalizeApiUrl } from "@study-flow/shared";
 import { getErrorMessage } from "./error";
 import { storageGet, storageSet, type StorageAreaLike } from "./chrome-storage";
 import {
@@ -60,20 +57,15 @@ export async function ingestToBackend(
   }
 
   const apiUrl = await readConfiguredApiUrl(deps.localStorage, DEFAULT_API_URL, deps.mode);
-  const requestBody = ingestTextRequestSchema.parse(buildIngestRequest(payload));
-  const response = await (deps.fetchImpl ?? fetch)(`${apiUrl}/api/v1/ingest/text`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(requestBody),
+
+  const client = createApiClient({
+    apiUrl,
+    getAuthToken: () => token,
+    fetchImpl: deps.fetchImpl,
+    mode: deps.mode,
   });
 
-  if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error || response.statusText);
-  }
+  await ingestTextContent(client, buildIngestRequest(payload));
 }
 
 async function openSidePanelIfPossible(

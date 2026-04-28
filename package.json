@@ -2,7 +2,7 @@
   "name": "gdg-monorepo",
   "private": true,
   "type": "module",
-  "packageManager": "bun@1.3.11",
+  "packageManager": "bun@1.3.13",
   "workspaces": [
     "packages/*",
     "web",

@@ -1,5 +1,6 @@
 {
   "manifest_version": 3,
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtBK83nMLM8Exlgt0zdMHi1MrOL84I6XvAVAlD9IkXIKSQ2zAjqyTkI3V8fJKq/12qpRpuZkGIjY3P5+3xs/TWqB9P2XTh81yo+qsDy80Adct8EznFCMQT1JUVWKDyAKJaefaX98PdgrFj1mmhcU1rn6gpYSz8nWtmZVPkFW0Dwnz9GvfCa4/gZV0rfYTii04hfde0SCApacnIHY0uyQT/XY8HD80p4cdMHM7ikNmJx7rPpMQ0AkR3lDpsWK4hh4f56bAQFVKh3s7vWs5mb3CRl81Ai4zFq3ZYvh4jWRX5QRUavXLFtWqNEXtClmpZ7+sUTbLB3Gy5SWyqtC1n0FPfwIDAQAB",
   "name": "Study Flow AI Companion",
   "version": "1.0.0",
   "description": "Your AI-powered study companion that understands what you are learning.",
@@ -20,7 +21,7 @@
   },
   "permissions": ["storage", "sidePanel", "activeTab", "scripting", "identity", "alarms", "tabs"],
   "oauth2": {
-    "client_id": "966291933098-6ikkt690ieircck9sn321nh7v64952cs.apps.googleusercontent.com",
+    "client_id": "966291933098-1kofpfa4m6mc0l0i7edem7sajii0jrco.apps.googleusercontent.com",
     "scopes": ["https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"]
   },
   "externally_connectable": {

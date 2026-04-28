@@ -17,8 +17,10 @@ export function Ask() {
   const [streamingText, setStreamingText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [grabbingText, setGrabbingText] = useState(false);
+  const [ingestingPdf, setIngestingPdf] = useState(false);
   const [capturingShot, setCapturingShot] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const [lastIngested, setLastIngested] = useState(null);
 
   const fileInputRef = useRef(null);
 
@@ -29,6 +31,10 @@ export function Ask() {
 
     chrome.storage.local.get(["activeCourseId"], (data) => {
       if (data.activeCourseId) setCourseId(data.activeCourseId);
+    });
+
+    chrome.storage.session.get(["lastIngestedContent"], (data) => {
+      if (data.lastIngestedContent) setLastIngested(data.lastIngestedContent);
     });
   }, []);
 
@@ -132,6 +138,38 @@ export function Ask() {
     }
   }
 
+  async function handleIngestPdf() {
+    if (!lastIngested?.pdfUrl) return;
+    setIngestingPdf(true);
+    setError(null);
+    setFeedback(null);
+
+    try {
+      // 1. Fetch the PDF
+      const res = await fetch(lastIngested.pdfUrl);
+      if (!res.ok) throw new Error("Failed to download PDF from Brightspace.");
+      const blob = await res.blob();
+
+      // 2. Upload to backend
+      const formData = new FormData();
+      formData.append("file", blob, lastIngested.filename || "brightspace.pdf");
+      if (courseId) formData.append("courseId", courseId);
+      formData.append("sourcePlatform", lastIngested.sourcePlatform);
+
+      const uploadRes = await apiFetch("/api/v1/ingest/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      setResponse(uploadRes);
+      setFeedback("PDF ingested! Check the Graph tab or your Dashboard to see the newly discovered concepts.");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIngestingPdf(false);
+    }
+  }
+
   async function handleFileUpload(e) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -145,12 +183,9 @@ export function Ask() {
       formData.append("file", file);
       if (courseId) formData.append("courseId", courseId);
 
-      // Note: apiFetch currently expects JSON body. For multipart, we use direct fetch or update apiFetch.
-      // Keeping it simple for now as per remote's implementation intent.
-      const res = await apiFetch("/api/v1/ingest", {
+      const res = await apiFetch("/api/v1/ingest/upload", {
         method: "POST",
-        // This is a placeholder for actual multipart support if needed
-        body: formData, 
+        body: formData,
       });
       setResponse(res);
       setFeedback(`Uploaded ${file.name} successfully.`);
@@ -199,6 +234,18 @@ export function Ask() {
           >
             {grabbingText ? "Reading…" : "Read Page Text"}
           </button>
+          {lastIngested?.pdfUrl && (
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              title="Ingest the full PDF from this page."
+              onClick={handleIngestPdf}
+              disabled={ingestingPdf || loading || isStreaming}
+              style={{ borderColor: "#3ee0d0", color: "#3ee0d0" }}
+            >
+              {ingestingPdf ? "Ingesting…" : "Ingest PDF"}
+            </button>
+          )}
           <button
             className={styles.secondaryButton}
             type="button"

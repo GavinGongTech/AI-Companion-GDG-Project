@@ -62,4 +62,93 @@ describe("createApiClient", () => {
       }),
     ).toThrow(/https/i);
   });
+
+  it("handles 204 No Content responses", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 204,
+    });
+
+    const client = createApiClient({
+      apiUrl: "http://localhost:3000",
+      fetchImpl,
+    });
+
+    const result = await client.apiFetch("/api/v1/ping");
+    expect(result).toBeUndefined();
+  });
+
+  it("handles API errors with messages", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: "Bad request" }),
+    });
+
+    const client = createApiClient({
+      apiUrl: "http://localhost:3000",
+      fetchImpl,
+    });
+
+    await expect(client.apiFetch("/api/v1/error")).rejects.toThrow("Bad request");
+  });
+
+  it("handles API errors without messages", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      statusText: "Internal Server Error",
+      json: async () => {
+        throw new Error("No JSON");
+      },
+    });
+
+    const client = createApiClient({
+      apiUrl: "http://localhost:3000",
+      fetchImpl,
+    });
+
+    await expect(client.apiFetch("/api/v1/error")).rejects.toThrow(
+      "Internal Server Error",
+    );
+  });
+
+  it("allows skipping JSON Content-Type", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({}),
+    });
+
+    const client = createApiClient({
+      apiUrl: "http://localhost:3000",
+      fetchImpl,
+    });
+
+    await client.apiFetch("/api/v1/test", {
+      skipJsonContentType: true,
+      body: JSON.stringify({ a: 1 }),
+    });
+
+    const headers = fetchImpl.mock.calls[0]?.[1]?.headers as Headers;
+    expect(headers.has("Content-Type")).toBe(false);
+  });
+
+  it("sets JSON Content-Type when body is null", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({}),
+    });
+
+    const client = createApiClient({
+      apiUrl: "http://localhost:3000",
+      fetchImpl,
+    });
+
+    await client.apiFetch("/api/v1/test", { method: "POST" });
+
+    const headers = fetchImpl.mock.calls[0]?.[1]?.headers as Headers;
+    expect(headers.get("Content-Type")).toBe("application/json");
+  });
 });
