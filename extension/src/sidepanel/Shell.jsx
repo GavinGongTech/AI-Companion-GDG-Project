@@ -1,9 +1,15 @@
 import { NavLink } from "react-router-dom";
 import { signOut } from "firebase/auth";
 import { auth, hasFirebaseConfig } from "./lib/firebase";
+import { useAuth } from "./lib/auth";
 import styles from "./Shell.module.css";
 
 export function Shell({ children }) {
+  const user = useAuth();
+  const firstName =
+    user?.displayName?.trim?.().split(/\s+/)[0] ||
+    user?.email?.split("@")[0] ||
+    "there";
   const tabClass = ({ isActive }) =>
     isActive ? `${styles.tab} ${styles.active}` : styles.tab;
 
@@ -15,7 +21,7 @@ export function Shell({ children }) {
     } catch {
       /* still clear session storage below */
     }
-    chrome.storage.session.remove("firebaseIdToken");
+    chrome.storage.session.remove(["firebaseIdToken", "authUser"]);
   }
 
   return (
@@ -46,6 +52,11 @@ export function Shell({ children }) {
           My Course
         </NavLink>
       </nav>
+
+      <section className={styles.hello} aria-label="Signed-in user">
+        <p className={styles.helloText}>Hello, {firstName}</p>
+        {user?.email && <p className={styles.helloMeta}>{user.email}</p>}
+      </section>
 
       <main className={styles.main}>{children}</main>
     </div>

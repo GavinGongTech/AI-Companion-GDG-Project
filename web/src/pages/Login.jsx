@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   signInWithEmailAndPassword,
   signInWithPopup,
   GoogleAuthProvider,
+  onAuthStateChanged,
 } from "firebase/auth";
 import { auth, hasFirebaseConfig } from "../lib/firebase";
 import styles from "./AuthPages.module.css";
@@ -21,32 +22,39 @@ export function Login() {
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
   const extensionId = getExtensionIdFromSearch(searchParams.toString());
-  const extensionSearch = extensionId ? `?extensionId=${encodeURIComponent(extensionId)}` : "";
+  const closeAfterAuth = searchParams.get("closeAfterAuth") === "1";
+  const extensionSearch = extensionId
+    ? `?extensionId=${encodeURIComponent(extensionId)}${closeAfterAuth ? "&closeAfterAuth=1" : ""}`
+    : "";
 
-  async function completeExtensionAuth() {
-    if (!extensionId) {
-      return true;
-    }
-
+  const completeExtensionAuth = useCallback(async (options = {}) => {
     setStatus("Connecting your website session to the extension...");
-    const result = await sendAuthToExtension(extensionId);
+    const result = await sendAuthToExtension(extensionId, options);
     if (!result.ok) {
-      setError(result.error);
-      setStatus("");
+      if (extensionId) {
+        setError(result.error);
+        setStatus("");
+        return false;
+      }
       return false;
     }
 
     setStatus("Extension connected. You can return to Study Flow.");
     return true;
-  }
+  }, [extensionId]);
 
   useEffect(() => {
-    if (!extensionId || !auth?.currentUser) {
+    if (!extensionId || !hasFirebaseConfig || !auth) {
       return;
     }
 
-    void completeExtensionAuth();
-  }, [extensionId]);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) return;
+      void completeExtensionAuth({ closeAfterAuth });
+    });
+
+    return unsubscribe;
+  }, [closeAfterAuth, completeExtensionAuth, extensionId]);
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -68,8 +76,11 @@ export function Login() {
           meta: { provider: "password" },
         }),
       }).catch(() => {});
-      if (!(await completeExtensionAuth())) {
+      if (extensionId && !(await completeExtensionAuth({ closeAfterAuth }))) {
         return;
+      }
+      if (!extensionId) {
+        completeExtensionAuth({ user }).catch(() => {});
       }
       if (!extensionId) {
         navigate("/dashboard");
@@ -100,8 +111,11 @@ export function Login() {
           meta: { provider: "google" },
         }),
       }).catch(() => {});
-      if (!(await completeExtensionAuth())) {
+      if (extensionId && !(await completeExtensionAuth({ closeAfterAuth }))) {
         return;
+      }
+      if (!extensionId) {
+        completeExtensionAuth({ user }).catch(() => {});
       }
       if (!extensionId) {
         navigate("/dashboard");

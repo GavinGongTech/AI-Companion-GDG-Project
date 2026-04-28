@@ -3,13 +3,16 @@ import { signOut } from "firebase/auth";
 import { auth } from "../lib/firebase";
 import { useAuth } from "../lib/auth";
 import { apiFetch } from "../lib/api";
+import { sendAuthToExtension } from "../lib/extensionBridge";
 import styles from "./Layout.module.css";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export function Layout() {
   const user = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [extensionStatus, setExtensionStatus] = useState("");
+  const [connectingExtension, setConnectingExtension] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -34,6 +37,23 @@ export function Layout() {
 
     await signOut(auth);
     navigate("/");
+  }
+
+  async function handleConnectExtension() {
+    setConnectingExtension(true);
+    setExtensionStatus("");
+    try {
+      const result = await sendAuthToExtension("", { user });
+      if (!result.ok) {
+        setExtensionStatus(result.error);
+        return;
+      }
+      setExtensionStatus("Extension connected");
+    } catch (err) {
+      setExtensionStatus(err?.message || "Could not connect extension.");
+    } finally {
+      setConnectingExtension(false);
+    }
   }
 
   return (
@@ -66,6 +86,15 @@ export function Layout() {
               </NavLink>
               <button
                 type="button"
+                className={styles.extensionBtn}
+                onClick={handleConnectExtension}
+                disabled={connectingExtension}
+                title={extensionStatus || "Sign in to the installed Study Flow extension with this web session."}
+              >
+                {connectingExtension ? "Connecting..." : "Connect extension"}
+              </button>
+              <button
+                type="button"
                 className={styles.cta}
                 onClick={handleSignOut}
               >
@@ -89,6 +118,18 @@ export function Layout() {
           )}
         </nav>
       </header>
+      {user && extensionStatus && (
+        <div
+          className={
+            extensionStatus === "Extension connected"
+              ? styles.extensionNotice
+              : `${styles.extensionNotice} ${styles.extensionError}`
+          }
+          role="status"
+        >
+          {extensionStatus}
+        </div>
+      )}
       <main className={styles.main}>
         <Outlet />
       </main>

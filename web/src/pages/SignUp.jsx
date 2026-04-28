@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   createUserWithEmailAndPassword,
+  onAuthStateChanged,
   updateProfile,
 } from "firebase/auth";
 import { auth, hasFirebaseConfig } from "../lib/firebase";
@@ -19,15 +20,18 @@ export function SignUp() {
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
   const extensionId = getExtensionIdFromSearch(searchParams.toString());
-  const extensionSearch = extensionId ? `?extensionId=${encodeURIComponent(extensionId)}` : "";
+  const closeAfterAuth = searchParams.get("closeAfterAuth") === "1";
+  const extensionSearch = extensionId
+    ? `?extensionId=${encodeURIComponent(extensionId)}${closeAfterAuth ? "&closeAfterAuth=1" : ""}`
+    : "";
 
-  async function completeExtensionAuth() {
+  const completeExtensionAuth = useCallback(async (options = {}) => {
     if (!extensionId) {
       return true;
     }
 
     setStatus("Connecting your website session to the extension...");
-    const result = await sendAuthToExtension(extensionId);
+    const result = await sendAuthToExtension(extensionId, options);
     if (!result.ok) {
       setError(result.error);
       setStatus("");
@@ -36,7 +40,20 @@ export function SignUp() {
 
     setStatus("Extension connected. You can return to Study Flow.");
     return true;
-  }
+  }, [extensionId]);
+
+  useEffect(() => {
+    if (!extensionId || !hasFirebaseConfig || !auth) {
+      return;
+    }
+
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) return;
+      void completeExtensionAuth({ closeAfterAuth });
+    });
+
+    return unsubscribe;
+  }, [closeAfterAuth, completeExtensionAuth, extensionId]);
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -63,7 +80,7 @@ export function SignUp() {
           meta: { provider: "password" },
         }),
       }).catch(() => {});
-      if (!(await completeExtensionAuth())) {
+      if (!(await completeExtensionAuth({ closeAfterAuth }))) {
         return;
       }
       if (!extensionId) {

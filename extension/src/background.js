@@ -103,7 +103,12 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
       firebaseIdToken: message.token,
       authUser: message.user,
     })
-    .then(() => sendResponse({ ok: true }))
+    .then(() => {
+      sendResponse({ ok: true });
+      if (message.closeAfterAuth && sender.tab?.id) {
+        void chrome.tabs.remove(sender.tab.id);
+      }
+    })
     .catch((err) => sendResponse({ ok: false, error: err.message }));
 
   return true;
