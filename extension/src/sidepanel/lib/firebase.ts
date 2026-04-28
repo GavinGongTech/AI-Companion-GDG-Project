@@ -14,7 +14,11 @@ function isValidFirebaseValue(value: string | undefined): boolean {
   return Boolean(value) && value !== "undefined" && value !== "null";
 }
 
-const hasFirebaseConfig = Object.values(firebaseConfig).every((v) => isValidFirebaseValue(v));
+const hasFirebaseConfig = [
+  firebaseConfig.apiKey,
+  firebaseConfig.authDomain,
+  firebaseConfig.projectId
+].every((v) => isValidFirebaseValue(v));
 
 let auth: Auth | null = null;
 

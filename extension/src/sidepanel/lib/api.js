@@ -16,6 +16,9 @@ function validateApiUrl() {
       apiHost === "127.0.0.1" ||
       apiHost === "[::1]" ||
       apiHost === "::1");
+  if (API_URL.startsWith("http:") && !isLocalHttp) {
+    throw new Error("VITE_API_URL must be localhost for HTTP. Use HTTPS for remote hosts.");
+  }
   if (import.meta.env.PROD && !API_URL.startsWith("https://") && !isLocalHttp) {
     throw new Error("VITE_API_URL must use https:// in production.");
   }

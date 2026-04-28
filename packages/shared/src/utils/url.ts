@@ -40,7 +40,7 @@ export function isSafeApiUrl(
       parsed.hostname === "::1";
 
     if (parsed.protocol === "http:") {
-      return !requireHttps || isLocalhost;
+      return isLocalhost;
     }
 
     return false;
