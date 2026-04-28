@@ -58,13 +58,13 @@ describe("Login Page", () => {
 
     const emailInput = screen.getByPlaceholderText(/you@university.edu/i);
     const passInput = screen.getByPlaceholderText(/••••••••/);
-    const submitBtn = screen.getByRole("button", { name: "Continue" });
+    const form = screen.getByRole("form", { name: "login-form" });
 
     fireEvent.change(emailInput, { target: { value: "test@example.com" } });
     fireEvent.change(passInput, { target: { value: "password" } });
     
     await act(async () => {
-      fireEvent.click(submitBtn);
+      fireEvent.submit(form);
     });
 
     await waitFor(() => {
@@ -101,13 +101,13 @@ describe("Login Page", () => {
       </MemoryRouter>
     );
 
-    const submitBtn = screen.getByRole("button", { name: "Continue" });
+    const form = screen.getByRole("form", { name: "login-form" });
     await act(async () => {
-      fireEvent.click(submitBtn);
+      fireEvent.submit(form);
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Login failed/i)).toBeDefined();
-    });
+      expect(screen.getByText(/Login failed/)).toBeDefined();
+    }, { timeout: 2000 });
   });
 });

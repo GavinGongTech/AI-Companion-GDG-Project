@@ -138,7 +138,7 @@ export function Login() {
         </p>
         {error && <p className={styles.error}>{error}</p>}
         {status && <p className={styles.note}>{status}</p>}
-        <form className={styles.form} onSubmit={onSubmit}>
+        <form className={styles.form} onSubmit={onSubmit} aria-label="login-form">
           <label className={styles.field}>
             <span className={styles.label}>Email</span>
             <input
