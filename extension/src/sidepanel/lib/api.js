@@ -1,16 +1,27 @@
 import { auth } from "./firebase";
 
 export const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:3000").replace(/\/+$/, "");
-const apiHost = (() => {
-  try {
-    return new URL(API_URL).hostname;
-  } catch {
-    return "";
+
+function validateApiUrl() {
+  const apiHost = (() => {
+    try {
+      return new URL(API_URL).hostname;
+    } catch {
+      return "";
+    }
+  })();
+  const isLocalHttp =
+    API_URL.startsWith("http://") &&
+    (apiHost === "localhost" ||
+      apiHost === "127.0.0.1" ||
+      apiHost === "[::1]" ||
+      apiHost === "::1");
+  if (API_URL.startsWith("http:") && !isLocalHttp) {
+    throw new Error("VITE_API_URL must be localhost for HTTP. Use HTTPS for remote hosts.");
   }
-})();
-const isLocalHttp = API_URL.startsWith("http://") && (apiHost === "localhost" || apiHost === "127.0.0.1");
-if (import.meta.env.PROD && !API_URL.startsWith("https://") && !isLocalHttp) {
-  throw new Error("VITE_API_URL must use https:// in production.");
+  if (import.meta.env.PROD && !API_URL.startsWith("https://") && !isLocalHttp) {
+    throw new Error("VITE_API_URL must use https:// in production.");
+  }
 }
 
 function mapNetworkError(err) {
@@ -69,6 +80,7 @@ async function buildAuthHeaders(extra = {}) {
 }
 
 export async function apiFetch(path, options = {}) {
+  validateApiUrl();
   const headers = await buildAuthHeaders(options.headers);
   let res;
   try {
@@ -81,41 +93,4 @@ export async function apiFetch(path, options = {}) {
     throw new Error(formatHttpErrorMessage(res.status, body));
   }
   return res.json();
-}
-
-/** Same as apiFetch but never relies on auth.currentUser timing — pass a token explicitly. */
-export async function apiFetchWithToken(path, idToken, options = {}) {
-  const headers = { "Content-Type": "application/json", ...options.headers };
-  if (idToken) headers.Authorization = `Bearer ${idToken}`;
-  let res;
-  try {
-    res = await fetch(`${API_URL}${path}`, { ...options, headers });
-  } catch (err) {
-    throw new Error(mapNetworkError(err), { cause: err });
-  }
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(formatHttpErrorMessage(res.status, body));
-  }
-  return res.json();
-}
-
-/**
- * POST to a streaming endpoint. Pass `{ signal }` from AbortController to cancel in flight
- * (matches reader.cancel() on the response body).
- */
-export async function apiStream(path, body, options = {}) {
-  const { signal, ...fetchInit } = options;
-  try {
-    return await fetch(`${API_URL}${path}`, {
-      method: "POST",
-      headers: await buildAuthHeaders(),
-      body: JSON.stringify(body),
-      signal,
-      ...fetchInit,
-    });
-  } catch (err) {
-    if (err?.name === "AbortError") throw err;
-    throw new Error(mapNetworkError(err), { cause: err });
-  }
 }

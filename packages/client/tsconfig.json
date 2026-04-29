@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@study-flow/shared": ["../shared/src/index.ts"]
+    }
+  },
+  "include": ["src"]
+}
