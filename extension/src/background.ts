@@ -14,16 +14,33 @@ const deps: BackgroundRuntimeDeps = {
   mode: (import.meta.env.MODE as "development" | "production" | "test") || "development",
 };
 
-chrome.runtime.onInstalled.addListener(() => {
+const SIDE_PANEL_PATH = "sidepanel.html";
+
+function configureSidePanel(): void {
   void (chrome as any).sidePanel.setOptions({
-    path: "dist/sidepanel.html",
+    path: SIDE_PANEL_PATH,
     enabled: true,
   });
+
+  if ((chrome as any).sidePanel.setPanelBehavior) {
+    void (chrome as any).sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+  }
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  configureSidePanel();
 });
+
+chrome.runtime.onStartup.addListener(() => {
+  configureSidePanel();
+});
+
+configureSidePanel();
 
 chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => {
   if (tab.windowId !== undefined) {
-    void (chrome as any).sidePanel.open({ windowId: tab.windowId });
+    configureSidePanel();
+    void (chrome as any).sidePanel.open({ windowId: tab.windowId }).catch(() => {});
   }
 });
 

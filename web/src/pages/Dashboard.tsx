@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import type { ApiFetchOptions } from "@study-flow/client";
 import type {
   DrillQueueResponse,
@@ -16,6 +17,7 @@ import {
   uploadIngestFile,
 } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { sendAuthToExtension } from "../lib/extensionBridge";
 import styles from "./Dashboard.module.css";
 
 const EMPTY_GRAPH: GraphResponse = { nodes: [] };
@@ -76,6 +78,8 @@ export default function Dashboard({
   initialData,
 }: DashboardProps = {}) {
   const user = useAuth();
+  const [searchParams] = useSearchParams();
+  const extensionId = searchParams.get("extensionId") || "";
   const graphRef = useRef<HTMLDivElement | null>(null);
   const cyRef = useRef<CytoscapeInstance | null>(null);
   const [nodes, setNodes] = useState<GraphNode[]>(() => initialData?.nodes ?? []);
@@ -98,6 +102,8 @@ export default function Dashboard({
     "loading" | "success" | "error" | null
   >(null);
   const [ingestError, setIngestError] = useState<string | null>(null);
+  const [extensionStatus, setExtensionStatus] = useState("");
+  const [connectingExtension, setConnectingExtension] = useState(false);
 
   useEffect(() => {
     if (initialData) {
@@ -220,6 +226,29 @@ export default function Dashboard({
     }
   }
 
+  async function handleConnectExtension(): Promise<void> {
+    setConnectingExtension(true);
+    setExtensionStatus("");
+
+    try {
+      const result = await sendAuthToExtension(extensionId);
+      if (!result.ok) {
+        setExtensionStatus(result.error || "Could not connect the extension.");
+        return;
+      }
+
+      setExtensionStatus("Extension connected. You can return to Study Flow.");
+    } catch (caughtError) {
+      setExtensionStatus(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Could not connect the extension.",
+      );
+    } finally {
+      setConnectingExtension(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className={styles.page}>
@@ -246,6 +275,34 @@ export default function Dashboard({
       <p className={styles.subheading}>
         Your progress, review queue, and recent study activity in one place.
       </p>
+
+      <div className={styles.extensionConnect}>
+        <div>
+          <h2 className={styles.extensionTitle}>Chrome extension</h2>
+          <p className={styles.extensionText}>
+            Connect the installed extension to this signed-in web session.
+          </p>
+        </div>
+        <button
+          type="button"
+          className={styles.extensionButton}
+          onClick={handleConnectExtension}
+          disabled={connectingExtension || !user}
+        >
+          {connectingExtension ? "Connecting..." : "Connect to extension"}
+        </button>
+      </div>
+      {extensionStatus && (
+        <p
+          className={
+            extensionStatus.startsWith("Extension connected")
+              ? styles.extensionSuccess
+              : styles.extensionError
+          }
+        >
+          {extensionStatus}
+        </p>
+      )}
 
       <div className={styles.statRow}>
         <div className={styles.stat}>
