@@ -88,7 +88,12 @@ chrome.runtime.onMessageExternal.addListener((message: any, sender: chrome.runti
     [STORAGE_KEYS.firebaseIdToken]: message.token,
     [STORAGE_KEYS.authUser]: message.user,
   })
-    .then(() => sendResponse({ ok: true }))
+    .then(() => chrome.storage.local.remove("extensionSignedOut"))
+    .then(() => {
+      sendResponse({ ok: true });
+      // Notify open extension pages (sidepanel) immediately
+      chrome.runtime.sendMessage({ type: "AUTH_UPDATED" }).catch(() => {});
+    })
     .catch((err: Error) => sendResponse(createMessageErrorResponse(err)));
 
   return true;

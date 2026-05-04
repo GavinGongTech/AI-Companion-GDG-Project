@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { ApiFetchOptions } from "@study-flow/client";
 import type {
@@ -17,7 +17,7 @@ import {
   uploadIngestFile,
 } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { sendAuthToExtension } from "../lib/extensionBridge";
+import { getConnectExtensionId, sendAuthToExtension } from "../lib/extensionBridge";
 import styles from "./Dashboard.module.css";
 
 const EMPTY_GRAPH: GraphResponse = { nodes: [] };
@@ -79,7 +79,7 @@ export default function Dashboard({
 }: DashboardProps = {}) {
   const user = useAuth();
   const [searchParams] = useSearchParams();
-  const extensionId = searchParams.get("extensionId") || "";
+  const extensionId = getConnectExtensionId(searchParams.toString());
   const graphRef = useRef<HTMLDivElement | null>(null);
   const cyRef = useRef<CytoscapeInstance | null>(null);
   const [nodes, setNodes] = useState<GraphNode[]>(() => initialData?.nodes ?? []);
@@ -104,6 +104,37 @@ export default function Dashboard({
   const [ingestError, setIngestError] = useState<string | null>(null);
   const [extensionStatus, setExtensionStatus] = useState("");
   const [connectingExtension, setConnectingExtension] = useState(false);
+  const autoConnected = useRef(false);
+
+  // extensionId present in the URL only when the user came via the extension's "Login" button
+  const extensionIdFromUrl = searchParams.get("extensionId") ?? "";
+
+  const connectExtension = useCallback(
+    async (id: string) => {
+      setConnectingExtension(true);
+      setExtensionStatus("");
+      try {
+        const result = await sendAuthToExtension(id, user);
+        setExtensionStatus(
+          result.ok
+            ? "Extension connected! You can return to Study Flow."
+            : result.error || "Could not connect the extension.",
+        );
+      } catch {
+        setExtensionStatus("Could not connect the extension.");
+      } finally {
+        setConnectingExtension(false);
+      }
+    },
+    [user],
+  );
+
+  // Auto-connect when the page was opened by the extension's login flow
+  useEffect(() => {
+    if (!extensionIdFromUrl || !user || autoConnected.current) return;
+    autoConnected.current = true;
+    connectExtension(extensionIdFromUrl);
+  }, [extensionIdFromUrl, user, connectExtension]);
 
   useEffect(() => {
     if (initialData) {
@@ -226,27 +257,8 @@ export default function Dashboard({
     }
   }
 
-  async function handleConnectExtension(): Promise<void> {
-    setConnectingExtension(true);
-    setExtensionStatus("");
-
-    try {
-      const result = await sendAuthToExtension(extensionId);
-      if (!result.ok) {
-        setExtensionStatus(result.error || "Could not connect the extension.");
-        return;
-      }
-
-      setExtensionStatus("Extension connected. You can return to Study Flow.");
-    } catch (caughtError) {
-      setExtensionStatus(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "Could not connect the extension.",
-      );
-    } finally {
-      setConnectingExtension(false);
-    }
+  function handleConnectExtension(): void {
+    connectExtension(extensionId);
   }
 
   if (loading) {

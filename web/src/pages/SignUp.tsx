@@ -1,13 +1,14 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   createUserWithEmailAndPassword,
   updateProfile,
 } from "firebase/auth";
 import { trackClientEvent } from "../lib/api";
+import { useAuth } from "../lib/auth";
 import { auth, hasFirebaseConfig } from "../lib/firebase";
 import styles from "./AuthPages.module.css";
-import { getExtensionIdFromSearch, sendAuthToExtension } from "../lib/extensionBridge";
+import { getExtensionIdFromSearch } from "../lib/extensionBridge";
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -18,31 +19,23 @@ function getErrorMessage(error: unknown): string {
 export function SignUp() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const user = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
   const extensionId = getExtensionIdFromSearch(searchParams.toString());
   const extensionSearch = extensionId ? `?extensionId=${encodeURIComponent(extensionId)}` : "";
+  const nextPath = extensionId
+    ? `/dashboard?extensionId=${encodeURIComponent(extensionId)}`
+    : "/welcome";
 
-  async function completeExtensionAuth() {
-    if (!extensionId) {
-      return true;
+  useEffect(() => {
+    if (user) {
+      navigate(nextPath, { replace: true });
     }
-
-    setStatus("Connecting your website session to the extension...");
-    const result = await sendAuthToExtension(extensionId);
-    if (!result.ok) {
-      setError(result.error || "Failed to connect to extension");
-      setStatus("");
-      return false;
-    }
-
-    setStatus("Extension connected. You can return to Study Flow.");
-    return true;
-  }
+  }, [navigate, nextPath, user]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -64,12 +57,7 @@ export function SignUp() {
         meta: { provider: "password" },
       }).catch(() => {});
       
-      if (!(await completeExtensionAuth())) {
-        return;
-      }
-      if (!extensionId) {
-        navigate("/welcome");
-      }
+      navigate(nextPath);
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
     } finally {
@@ -84,11 +72,10 @@ export function SignUp() {
         <h1 className={styles.title}>Create your account</h1>
         <p className={styles.lede}>
           {extensionId
-            ? "Create your account here and we’ll connect the new session back to the extension."
+            ? "Create your account here, then use Connect to extension on your dashboard."
             : "We’ll build your misconception graph as you study. You can connect your courses after signup for auto-ingestion."}
         </p>
         {error && <p className={styles.error}>{error}</p>}
-        {status && <p className={styles.note}>{status}</p>}
         <form className={styles.form} onSubmit={onSubmit}>
           <label className={styles.field}>
             <span className={styles.label}>Full name</span>
