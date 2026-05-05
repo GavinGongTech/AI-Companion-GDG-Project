@@ -4,6 +4,7 @@ import {
   createContentHash,
   createIngestPayload,
   detectPdfUrl,
+  deriveCourseId,
 } from "./lib/content-runtime";
 import type { ExtensionRuntimeMessage } from "./lib/messages";
 
@@ -16,30 +17,61 @@ import type { ExtensionRuntimeMessage } from "./lib/messages";
   const sourcePlatform = detectSupportedPlatform(window.location.hostname);
   if (!sourcePlatform) return;
 
-  const extractedText = extractText(document, sourcePlatform);
-  const pdfInfo = detectPdfUrl(document, sourcePlatform);
+  const courseId = deriveCourseId(
+    window.location.hostname,
+    window.location.pathname,
+    document.title,
+  );
 
-  if (!extractedText && !pdfInfo) return;
-
-  const hash = createContentHash(extractedText || (pdfInfo?.pdfUrl ?? ""));
   const STORAGE_KEY = "studyflow_last_hash";
-  const isDuplicate = localStorage.getItem(STORAGE_KEY) === hash;
-  localStorage.setItem(STORAGE_KEY, hash);
-
   let ingested = false;
-  if (!isDuplicate) {
-    const message: ExtensionRuntimeMessage = {
-      type: "INGEST_PAGE",
-      payload: createIngestPayload(
-        extractedText || "PDF Content Detected",
-        document.title,
-        sourcePlatform,
-        pdfInfo?.pdfUrl,
-        pdfInfo?.filename,
-      ),
-    };
-    chrome.runtime.sendMessage(message);
-    ingested = true;
+
+  function tryIngest(): boolean {
+    const extractedText = extractText(document, sourcePlatform!);
+    const pdfInfo = detectPdfUrl(document, sourcePlatform!);
+
+    if (!extractedText && !pdfInfo) return false;
+
+    const hash = createContentHash(extractedText || (pdfInfo?.pdfUrl ?? ""));
+    const isDuplicate = localStorage.getItem(STORAGE_KEY) === hash;
+    localStorage.setItem(STORAGE_KEY, hash);
+
+    if (!isDuplicate) {
+      if (pdfInfo) {
+        // PDF path: background fetches the bytes with session cookies and POSTs to /ingest/upload
+        const message: ExtensionRuntimeMessage = {
+          type: "INGEST_PDF",
+          payload: {
+            pdfUrl: pdfInfo.pdfUrl,
+            filename: pdfInfo.filename,
+            courseName: courseId,
+            sourcePlatform: sourcePlatform!,
+          },
+        };
+        chrome.runtime.sendMessage(message);
+      } else if (extractedText) {
+        // Text-only path: send extracted DOM text to /ingest/text
+        const message: ExtensionRuntimeMessage = {
+          type: "INGEST_PAGE",
+          payload: createIngestPayload(extractedText, courseId, sourcePlatform!),
+        };
+        chrome.runtime.sendMessage(message);
+      }
+      ingested = true;
+    }
+
+    return true;
+  }
+
+  const contentFound = tryIngest();
+
+  if (!contentFound) {
+    // SPA content not yet in DOM — watch for mutations and retry
+    const observer = new MutationObserver(() => {
+      if (tryIngest()) observer.disconnect();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    setTimeout(() => observer.disconnect(), 30_000);
   }
 
   // --- Shadow DOM floating widget ---
@@ -150,7 +182,7 @@ import type { ExtensionRuntimeMessage } from "./lib/messages";
     const message: ExtensionRuntimeMessage = {
       type: "OPEN_ASK",
       payload: {
-        selectedText: selectedText || (extractedText ? extractedText.slice(0, 500) : ""),
+        selectedText: selectedText || "",
       },
     };
     chrome.runtime.sendMessage(message);
@@ -163,5 +195,5 @@ import type { ExtensionRuntimeMessage } from "./lib/messages";
     panel.classList.remove("open");
   });
 
-  console.info("[Study Flow] Content script loaded on", sourcePlatform, window.location.href);
+  console.info("[Study Flow] Content script loaded on", sourcePlatform, "courseId:", courseId);
 })();

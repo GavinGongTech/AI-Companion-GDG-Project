@@ -8,12 +8,20 @@ export interface IngestPagePayload {
   filename?: string;
 }
 
+export interface IngestPdfPayload {
+  pdfUrl: string;
+  filename: string;
+  courseName: string;
+  sourcePlatform: SupportedContentPlatform;
+}
+
 export interface OpenAskPayload {
   selectedText?: string;
 }
 
 export type ExtensionRuntimeMessage =
   | { type: "INGEST_PAGE"; payload: IngestPagePayload }
+  | { type: "INGEST_PDF"; payload: IngestPdfPayload }
   | { type: "OPEN_ASK"; payload?: OpenAskPayload }
   | { type: "OPEN_QUIZ" };
 
@@ -39,6 +47,7 @@ export function isExtensionRuntimeMessage(message: unknown): message is Extensio
   const candidate = message as { type?: string };
   return (
     candidate.type === "INGEST_PAGE" ||
+    candidate.type === "INGEST_PDF" ||
     candidate.type === "OPEN_ASK" ||
     candidate.type === "OPEN_QUIZ"
   );

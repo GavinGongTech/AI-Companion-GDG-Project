@@ -5,6 +5,18 @@ const PLATFORM_SELECTORS: Record<SupportedContentPlatform, string[]> = {
   gradescope: [".submissionContent", ".rubricContent", ".questionContent"],
 };
 
+export function deriveCourseId(hostname: string, pathname: string, fallback: string): string {
+  // Brightspace: /d2l/le/content/{ouId}/... or /d2l/le/{ouId}/...
+  const brightspaceMatch = pathname.match(/\/d2l\/le\/(?:content\/)?(\d+)/);
+  if (brightspaceMatch) return `brightspace-${brightspaceMatch[1]}`;
+
+  // Gradescope: /courses/{courseId}/...
+  const gradescopeMatch = pathname.match(/\/courses\/(\d+)/);
+  if (gradescopeMatch) return `gradescope-${gradescopeMatch[1]}`;
+
+  return fallback;
+}
+
 export function detectSupportedPlatform(hostname: string): SupportedContentPlatform | null {
   const normalized = hostname.toLowerCase();
   if (normalized.includes("brightspace")) {
@@ -61,6 +73,31 @@ export function detectPdfUrl(
       const urlParams = new URLSearchParams(new URL(viewerIframe.src).search);
       const file = urlParams.get("file");
       if (file) return { pdfUrl: file, filename: "embedded-pdf.pdf" };
+    }
+  }
+
+  if (sourcePlatform === "gradescope") {
+    // 1. S3-style signed upload iframe (most common for submission PDFs)
+    const s3Iframe = documentRef.querySelector<HTMLIFrameElement>('iframe[src*="gradescope-uploads"]');
+    if (s3Iframe?.src) return { pdfUrl: s3Iframe.src, filename: "gradescope-submission.pdf" };
+
+    // 2. Any iframe with .pdf in src
+    const pdfIframe = documentRef.querySelector<HTMLIFrameElement>('iframe[src*=".pdf"]');
+    if (pdfIframe?.src) return { pdfUrl: pdfIframe.src, filename: "gradescope-submission.pdf" };
+
+    // 3. PDF.js viewer (same pattern as brightspace)
+    const viewerIframe = documentRef.querySelector<HTMLIFrameElement>('iframe[src*="pdfjs"]');
+    if (viewerIframe?.src) {
+      const urlParams = new URLSearchParams(new URL(viewerIframe.src).search);
+      const file = urlParams.get("file");
+      if (file) return { pdfUrl: file, filename: "gradescope-submission.pdf" };
+    }
+
+    // 4. Direct download link
+    const pdfLink = documentRef.querySelector<HTMLAnchorElement>('a[href$=".pdf"]');
+    if (pdfLink?.href) {
+      const filename = pdfLink.getAttribute("download") || pdfLink.textContent?.trim() || "gradescope.pdf";
+      return { pdfUrl: pdfLink.href, filename };
     }
   }
 

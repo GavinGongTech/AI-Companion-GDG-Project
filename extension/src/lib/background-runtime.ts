@@ -1,4 +1,4 @@
-import { createApiClient, ingestTextContent } from "@study-flow/client";
+import { createApiClient, ingestTextContent, uploadIngestFile } from "@study-flow/client";
 import { type IngestTextRequest, normalizeApiUrl } from "@study-flow/shared";
 import { getErrorMessage } from "./error";
 import { storageGet, storageSet, type StorageAreaLike } from "./chrome-storage";
@@ -7,6 +7,7 @@ import {
   type ExtensionRuntimeMessage,
   type ExtensionRuntimeResponse,
   type IngestPagePayload,
+  type IngestPdfPayload,
 } from "./messages";
 
 const DEFAULT_API_URL = "http://localhost:3000";
@@ -42,6 +43,36 @@ export async function readConfiguredApiUrl(
 ): Promise<string> {
   const data = await storageGet<{ apiUrl?: string }>(localStorage, [STORAGE_KEYS.apiUrl]);
   return normalizeApiUrl(data.apiUrl || fallbackApiUrl, mode);
+}
+
+export async function ingestPdfToBackend(
+  payload: IngestPdfPayload,
+  deps: Pick<BackgroundRuntimeDeps, "localStorage" | "sessionStorage" | "fetchImpl" | "mode">,
+): Promise<void> {
+  const session = await storageGet<{ firebaseIdToken?: string }>(deps.sessionStorage, [
+    STORAGE_KEYS.firebaseIdToken,
+  ]);
+  const token = session.firebaseIdToken;
+  if (!token) return;
+
+  const apiUrl = await readConfiguredApiUrl(deps.localStorage, DEFAULT_API_URL, deps.mode);
+  const fetchImpl = deps.fetchImpl || fetch;
+
+  // Fetch PDF with session cookies so Brightspace/Gradescope auth is preserved
+  const response = await fetchImpl(payload.pdfUrl, { credentials: "include" });
+  if (!response.ok) return;
+
+  const arrayBuffer = await response.arrayBuffer();
+  const file = new File([arrayBuffer], payload.filename, { type: "application/pdf" });
+
+  const client = createApiClient({
+    apiUrl,
+    getAuthToken: () => token,
+    fetchImpl: deps.fetchImpl,
+    mode: deps.mode,
+  });
+
+  await uploadIngestFile(client, file, payload.courseName);
 }
 
 export async function ingestToBackend(
@@ -97,6 +128,11 @@ export async function handleExtensionMessage(
       [STORAGE_KEYS.lastIngestedContent]: message.payload,
     });
     await ingestToBackend(message.payload, deps);
+    return { ok: true };
+  }
+
+  if (message.type === "INGEST_PDF") {
+    await ingestPdfToBackend(message.payload, deps);
     return { ok: true };
   }
 
