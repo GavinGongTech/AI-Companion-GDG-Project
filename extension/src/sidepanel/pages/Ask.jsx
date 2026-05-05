@@ -68,14 +68,6 @@ export function Ask() {
     };
   }, [courseId, question]);
 
-  const hasAutoGrabbed = useRef(false);
-  useEffect(() => {
-    if (!hasAutoGrabbed.current) {
-      hasAutoGrabbed.current = true;
-      handleUseSelectedText();
-    }
-  }, []);
-
   async function handleAsk(e) {
     if (e) e.preventDefault();
     if (!question.trim() && !attachedImageBase64) return;
@@ -117,6 +109,7 @@ export function Ask() {
   async function handleUseSelectedText() {
     setGrabbingText(true);
     setError(null);
+    setFeedback(null);
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!tab?.id || tab.url?.startsWith("chrome://") || tab.url?.startsWith("edge://")) {
@@ -127,22 +120,16 @@ export function Ask() {
         target: { tabId: tab.id },
         func: () => {
           const sel = window.getSelection().toString().trim();
-          return sel ? sel : document.body.innerText;
+          return sel;
         },
       });
 
-      const text = results?.[0]?.result;
-      if (text) {
-        setQuestion(prev => prev ? prev : text.substring(0, 15000));
-      } else {
-        // Fallback to last ingested content if no selection
-        const data = await chrome.storage.session.get(["lastIngestedContent"]);
-        if (data.lastIngestedContent?.rawContent) {
-          setQuestion(prev => prev ? prev : data.lastIngestedContent.rawContent.slice(0, 5000));
-        } else {
-          setFeedback("No text found on the page!");
-        }
+      const text = String(results?.[0]?.result || "").trim();
+      if (!text) {
+        setFeedback("Highlight text on the page first, then click Read Page Text.");
+        return;
       }
+      setQuestion(text.substring(0, 15000));
     } catch (err) {
       setError(err.message);
     } finally {

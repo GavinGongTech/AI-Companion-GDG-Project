@@ -104,7 +104,7 @@ export function Quiz() {
         target: { tabId: tab.id },
         func: () => {
           const sel = window.getSelection().toString().trim();
-          return sel ? sel : document.body.innerText;
+          return sel;
         },
       });
 
@@ -112,9 +112,9 @@ export function Quiz() {
       const trimmed = String(text || "").trim();
       if (trimmed) {
         setTopic(trimmed.slice(0, 220));
-        setFeedback("Topic set from selection/page text.");
+        setFeedback("Topic set from selection.");
       } else {
-        setFeedback("No text found on the page!");
+        setFeedback("Highlight text on the page first, then click Read Page Text.");
       }
     } catch (err) {
       setError(err.message);
