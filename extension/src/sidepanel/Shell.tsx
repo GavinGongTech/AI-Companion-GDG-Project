@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import type { PropsWithChildren } from "react";
 import { signOut } from "firebase/auth";
 import { auth, hasFirebaseConfig } from "./lib/firebase";
+import { STORAGE_KEYS } from "../lib/messages";
 import styles from "./Shell.module.css";
 
 export function Shell({ children }: PropsWithChildren) {
@@ -16,7 +17,8 @@ export function Shell({ children }: PropsWithChildren) {
     } catch {
       /* still clear session storage below */
     }
-    chrome.storage.session.remove("firebaseIdToken");
+    await chrome.storage.local.set({ extensionSignedOut: true });
+    await chrome.storage.session.remove([STORAGE_KEYS.firebaseIdToken, STORAGE_KEYS.authUser]);
   }
 
   return (

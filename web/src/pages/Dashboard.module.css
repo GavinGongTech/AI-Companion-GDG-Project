@@ -19,6 +19,76 @@
   font-size: 0.95rem;
 }
 
+.extensionConnect {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  padding: 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-soft);
+}
+
+.extensionTitle {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.extensionText {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.extensionButton {
+  flex-shrink: 0;
+  padding: 0.6rem 1rem;
+  border: none;
+  border-radius: var(--radius-pill);
+  color: #fff;
+  background: var(--accent);
+  font-size: 0.9rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.extensionButton:hover:not(:disabled) {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.extensionButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.extensionSuccess,
+.extensionError {
+  margin: -0.5rem 0 1.25rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: var(--radius-md);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.extensionSuccess {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+.extensionError {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
 .statRow {
   display: flex;
   gap: 1rem;
@@ -79,6 +149,15 @@
 
   .page {
     padding: 1.25rem 1rem;
+  }
+
+  .extensionConnect {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .extensionButton {
+    width: 100%;
   }
 }
 

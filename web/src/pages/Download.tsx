@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
 import styles from "./AuthPages.module.css";
 
+const extensionPackageUrl = "/downloads/study-flow-extension.zip?v=2026-04-28-2105";
+
 export function Download() {
   return (
     <div className={styles.wrap}>
@@ -14,14 +16,15 @@ export function Download() {
         <div className={styles.chromeRow}>
           <a
             className={styles.primaryBtn}
-            href="/downloads/study-flow-extension.zip"
+            href={extensionPackageUrl}
             download="study-flow-extension.zip"
           >
             Download extension package
           </a>
           <span className={styles.hint}>
-            Dev: run <code className={styles.code}>bun run --cwd extension build</code>,
-            then Chrome → Extensions → Developer mode → Load unpacked → select{" "}
+            Unzip the package, move the extracted folder somewhere permanent,
+            then Chrome → Extensions → Developer mode → Load unpacked → select
+            the extracted folder. For local dev, select{" "}
             <code className={styles.code}>extension/dist</code>.
           </span>
         </div>

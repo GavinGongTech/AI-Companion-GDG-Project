@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import type { ApiFetchOptions } from "@study-flow/client";
 import type {
   DrillQueueResponse,
@@ -16,6 +17,7 @@ import {
   uploadIngestFile,
 } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { getConnectExtensionId, sendAuthToExtension } from "../lib/extensionBridge";
 import styles from "./Dashboard.module.css";
 
 const EMPTY_GRAPH: GraphResponse = { nodes: [] };
@@ -76,6 +78,8 @@ export default function Dashboard({
   initialData,
 }: DashboardProps = {}) {
   const user = useAuth();
+  const [searchParams] = useSearchParams();
+  const extensionId = getConnectExtensionId(searchParams.toString());
   const graphRef = useRef<HTMLDivElement | null>(null);
   const cyRef = useRef<CytoscapeInstance | null>(null);
   const [nodes, setNodes] = useState<GraphNode[]>(() => initialData?.nodes ?? []);
@@ -98,6 +102,39 @@ export default function Dashboard({
     "loading" | "success" | "error" | null
   >(null);
   const [ingestError, setIngestError] = useState<string | null>(null);
+  const [extensionStatus, setExtensionStatus] = useState("");
+  const [connectingExtension, setConnectingExtension] = useState(false);
+  const autoConnected = useRef(false);
+
+  // extensionId present in the URL only when the user came via the extension's "Login" button
+  const extensionIdFromUrl = searchParams.get("extensionId") ?? "";
+
+  const connectExtension = useCallback(
+    async (id: string) => {
+      setConnectingExtension(true);
+      setExtensionStatus("");
+      try {
+        const result = await sendAuthToExtension(id, user);
+        setExtensionStatus(
+          result.ok
+            ? "Extension connected! You can return to Study Flow."
+            : result.error || "Could not connect the extension.",
+        );
+      } catch {
+        setExtensionStatus("Could not connect the extension.");
+      } finally {
+        setConnectingExtension(false);
+      }
+    },
+    [user],
+  );
+
+  // Auto-connect when the page was opened by the extension's login flow
+  useEffect(() => {
+    if (!extensionIdFromUrl || !user || autoConnected.current) return;
+    autoConnected.current = true;
+    connectExtension(extensionIdFromUrl);
+  }, [extensionIdFromUrl, user, connectExtension]);
 
   useEffect(() => {
     if (initialData) {
@@ -220,6 +257,10 @@ export default function Dashboard({
     }
   }
 
+  function handleConnectExtension(): void {
+    connectExtension(extensionId);
+  }
+
   if (loading) {
     return (
       <div className={styles.page}>
@@ -246,6 +287,34 @@ export default function Dashboard({
       <p className={styles.subheading}>
         Your progress, review queue, and recent study activity in one place.
       </p>
+
+      <div className={styles.extensionConnect}>
+        <div>
+          <h2 className={styles.extensionTitle}>Chrome extension</h2>
+          <p className={styles.extensionText}>
+            Connect the installed extension to this signed-in web session.
+          </p>
+        </div>
+        <button
+          type="button"
+          className={styles.extensionButton}
+          onClick={handleConnectExtension}
+          disabled={connectingExtension || !user}
+        >
+          {connectingExtension ? "Connecting..." : "Connect to extension"}
+        </button>
+      </div>
+      {extensionStatus && (
+        <p
+          className={
+            extensionStatus.startsWith("Extension connected")
+              ? styles.extensionSuccess
+              : styles.extensionError
+          }
+        >
+          {extensionStatus}
+        </p>
+      )}
 
       <div className={styles.statRow}>
         <div className={styles.stat}>

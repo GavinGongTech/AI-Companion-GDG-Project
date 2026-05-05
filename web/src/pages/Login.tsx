@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   GoogleAuthProvider,
@@ -6,9 +6,10 @@ import {
   signInWithPopup,
 } from "firebase/auth";
 import { trackClientEvent } from "../lib/api";
+import { useAuth } from "../lib/auth";
 import { auth, hasFirebaseConfig } from "../lib/firebase";
 import styles from "./AuthPages.module.css";
-import { getExtensionIdFromSearch, sendAuthToExtension } from "../lib/extensionBridge";
+import { getExtensionIdFromSearch } from "../lib/extensionBridge";
 
 const googleProvider = new GoogleAuthProvider();
 
@@ -21,48 +22,22 @@ function getErrorMessage(error: unknown): string {
 export function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const user = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
   const extensionId = getExtensionIdFromSearch(searchParams.toString());
   const extensionSearch = extensionId ? `?extensionId=${encodeURIComponent(extensionId)}` : "";
+  const dashboardPath = extensionId
+    ? `/dashboard?extensionId=${encodeURIComponent(extensionId)}`
+    : "/dashboard";
 
-  const completeExtensionAuth = useCallback(async () => {
-    if (!extensionId) {
-      return true;
-    }
-
-    // Wrap in setTimeout to avoid synchronous setState in effect
-    setTimeout(() => {
-      setStatus("Connecting your website session to the extension...");
-    }, 0);
-
-    const result = await sendAuthToExtension(extensionId);
-    if (!result.ok) {
-      setError(result.error || "Failed to connect to extension");
-      setStatus("");
-      return false;
-    }
-
-    setStatus("Extension connected. You can return to Study Flow.");
-    return true;
-  }, [extensionId]);
-
-  // Handle auto-connection when user is already signed in
   useEffect(() => {
-    let active = true;
-    
-    if (extensionId && auth?.currentUser) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      void completeExtensionAuth().then(() => {
-        if (!active) return;
-      });
+    if (user) {
+      navigate(dashboardPath, { replace: true });
     }
-    
-    return () => { active = false; };
-  }, [extensionId, completeExtensionAuth]);
+  }, [dashboardPath, navigate, user]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -83,12 +58,7 @@ export function Login() {
         meta: { provider: "password" },
       }).catch(() => {});
       
-      if (!(await completeExtensionAuth())) {
-        return;
-      }
-      if (!extensionId) {
-        navigate("/dashboard");
-      }
+      navigate(dashboardPath);
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
     } finally {
@@ -113,12 +83,7 @@ export function Login() {
         meta: { provider: "google" },
       }).catch(() => {});
       
-      if (!(await completeExtensionAuth())) {
-        return;
-      }
-      if (!extensionId) {
-        navigate("/dashboard");
-      }
+      navigate(dashboardPath);
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
     } finally {
@@ -133,7 +98,7 @@ export function Login() {
         <h1 className={styles.title}>Log in</h1>
         <p className={styles.lede}>
           {extensionId
-            ? "Sign in here and we’ll connect your website session back to the extension."
+            ? "Sign in here, then use Connect to extension on your dashboard."
             : "Sign in with your email or Google account to continue studying."}
         </p>
         {error && <p className={styles.error}>{error}</p>}
