@@ -170,9 +170,7 @@ import type { ExtensionRuntimeMessage } from "./lib/messages";
     const selectedText = window.getSelection()?.toString() ?? "";
     const message: ExtensionRuntimeMessage = {
       type: "OPEN_ASK_SCREENSHOT",
-      payload: {
-        selectedText,
-      },
+      payload: { selectedText },
     };
     chrome.runtime.sendMessage(message);
     panel.classList.remove("open");
