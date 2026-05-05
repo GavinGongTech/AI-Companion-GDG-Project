@@ -13,6 +13,11 @@ import type { ExtensionRuntimeMessage } from "./lib/messages";
   if (document.documentElement.getAttribute(ATTR)) return;
   document.documentElement.setAttribute(ATTR, "1");
 
+  // Only inject the floating widget in the top frame (avoid duplicate FABs in iframes / PDF viewers).
+  if (window !== window.top) {
+    return;
+  }
+
   const sourcePlatform = detectSupportedPlatform(window.location.hostname);
   if (!sourcePlatform) return;
 
@@ -137,6 +142,10 @@ import type { ExtensionRuntimeMessage } from "./lib/messages";
   btnExplain.textContent = "Explain this";
   panel.appendChild(btnExplain);
 
+  const btnAsk = document.createElement("button");
+  btnAsk.textContent = "Ask me";
+  panel.appendChild(btnAsk);
+
   const btnQuiz = document.createElement("button");
   btnQuiz.textContent = "Quiz me";
   panel.appendChild(btnQuiz);
@@ -146,9 +155,9 @@ import type { ExtensionRuntimeMessage } from "./lib/messages";
   });
 
   btnExplain.addEventListener("click", () => {
-    const selectedText = window.getSelection()?.toString();
+    const selectedText = window.getSelection()?.toString() ?? "";
     const message: ExtensionRuntimeMessage = {
-      type: "OPEN_ASK",
+      type: "OPEN_ASK_SCREENSHOT",
       payload: {
         selectedText: selectedText || (extractedText ? extractedText.slice(0, 500) : ""),
       },
@@ -157,8 +166,20 @@ import type { ExtensionRuntimeMessage } from "./lib/messages";
     panel.classList.remove("open");
   });
 
+  btnAsk.addEventListener("click", () => {
+    const selectedText = window.getSelection()?.toString() ?? "";
+    const message: ExtensionRuntimeMessage = {
+      type: "OPEN_ASK_SCREENSHOT",
+      payload: {
+        selectedText,
+      },
+    };
+    chrome.runtime.sendMessage(message);
+    panel.classList.remove("open");
+  });
+
   btnQuiz.addEventListener("click", () => {
-    const message: ExtensionRuntimeMessage = { type: "OPEN_QUIZ" };
+    const message: ExtensionRuntimeMessage = { type: "OPEN_QUIZ_SCREENSHOT" };
     chrome.runtime.sendMessage(message);
     panel.classList.remove("open");
   });

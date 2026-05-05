@@ -15,7 +15,9 @@ export interface OpenAskPayload {
 export type ExtensionRuntimeMessage =
   | { type: "INGEST_PAGE"; payload: IngestPagePayload }
   | { type: "OPEN_ASK"; payload?: OpenAskPayload }
-  | { type: "OPEN_QUIZ" };
+  | { type: "OPEN_ASK_SCREENSHOT"; payload?: OpenAskPayload }
+  | { type: "OPEN_QUIZ" }
+  | { type: "OPEN_QUIZ_SCREENSHOT" };
 
 export interface ExtensionRuntimeResponse {
   ok: boolean;
@@ -29,6 +31,8 @@ export const STORAGE_KEYS = {
   lastIngestedContent: "lastIngestedContent",
   navigateTo: "navigateTo",
   prefillAsk: "prefillAsk",
+  prefillAskImageBase64: "prefillAskImageBase64",
+  prefillQuizImageBase64: "prefillQuizImageBase64",
 } as const;
 
 export function isExtensionRuntimeMessage(message: unknown): message is ExtensionRuntimeMessage {
@@ -40,6 +44,8 @@ export function isExtensionRuntimeMessage(message: unknown): message is Extensio
   return (
     candidate.type === "INGEST_PAGE" ||
     candidate.type === "OPEN_ASK" ||
-    candidate.type === "OPEN_QUIZ"
+    candidate.type === "OPEN_ASK_SCREENSHOT" ||
+    candidate.type === "OPEN_QUIZ" ||
+    candidate.type === "OPEN_QUIZ_SCREENSHOT"
   );
 }

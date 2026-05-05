@@ -87,32 +87,75 @@ async function openSidePanelIfPossible(
   }
 }
 
+async function captureSenderTabScreenshot(sender: RuntimeMessageSender): Promise<string> {
+  const windowId = sender.tab?.windowId;
+  if (typeof windowId !== "number") {
+    throw new Error("No active window to capture.");
+  }
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    chrome.tabs.captureVisibleTab(windowId, { format: "jpeg", quality: 80 }, (url) => {
+      const le = chrome.runtime.lastError;
+      if (le) reject(new Error(le.message));
+      else resolve(url || "");
+    });
+  });
+  const base64 = dataUrl.includes(",") ? dataUrl.split(",", 2)[1]! : "";
+  if (!base64) {
+    throw new Error("Screenshot capture returned empty image data.");
+  }
+  return base64;
+}
+
 export async function handleExtensionMessage(
   message: ExtensionRuntimeMessage,
   sender: RuntimeMessageSender,
   deps: BackgroundRuntimeDeps,
 ): Promise<ExtensionRuntimeResponse> {
-  if (message.type === "INGEST_PAGE") {
-    await storageSet(deps.sessionStorage, {
-      [STORAGE_KEYS.lastIngestedContent]: message.payload,
-    });
-    await ingestToBackend(message.payload, deps);
-    return { ok: true };
+  switch (message.type) {
+    case "INGEST_PAGE": {
+      await storageSet(deps.sessionStorage, {
+        [STORAGE_KEYS.lastIngestedContent]: message.payload,
+      });
+      await ingestToBackend(message.payload, deps);
+      return { ok: true };
+    }
+    case "OPEN_ASK":
+      await storageSet(deps.sessionStorage, {
+        [STORAGE_KEYS.prefillAsk]: message.payload?.selectedText || "",
+        [STORAGE_KEYS.navigateTo]: "ask",
+      });
+      await openSidePanelIfPossible(sender, deps.sidePanel);
+      return { ok: true };
+    case "OPEN_ASK_SCREENSHOT": {
+      const base64 = await captureSenderTabScreenshot(sender);
+      await storageSet(deps.sessionStorage, {
+        [STORAGE_KEYS.navigateTo]: "ask",
+        [STORAGE_KEYS.prefillAsk]: message.payload?.selectedText || "",
+        [STORAGE_KEYS.prefillAskImageBase64]: base64,
+      });
+      await openSidePanelIfPossible(sender, deps.sidePanel);
+      return { ok: true };
+    }
+    case "OPEN_QUIZ":
+      await storageSet(deps.sessionStorage, {
+        [STORAGE_KEYS.navigateTo]: "quiz",
+      });
+      await openSidePanelIfPossible(sender, deps.sidePanel);
+      return { ok: true };
+    case "OPEN_QUIZ_SCREENSHOT": {
+      const base64 = await captureSenderTabScreenshot(sender);
+      await storageSet(deps.sessionStorage, {
+        [STORAGE_KEYS.navigateTo]: "quiz",
+        [STORAGE_KEYS.prefillQuizImageBase64]: base64,
+      });
+      await openSidePanelIfPossible(sender, deps.sidePanel);
+      return { ok: true };
+    }
+    default: {
+      const _exhaustive: never = message;
+      return { ok: false, error: `Unknown message type: ${String((_exhaustive as ExtensionRuntimeMessage).type)}` };
+    }
   }
-
-  if (message.type === "OPEN_ASK") {
-    await storageSet(deps.sessionStorage, {
-      [STORAGE_KEYS.prefillAsk]: message.payload?.selectedText || "",
-    });
-    await openSidePanelIfPossible(sender, deps.sidePanel);
-    return { ok: true };
-  }
-
-  await storageSet(deps.sessionStorage, {
-    [STORAGE_KEYS.navigateTo]: "quiz",
-  });
-  await openSidePanelIfPossible(sender, deps.sidePanel);
-  return { ok: true };
 }
 
 export function createMessageErrorResponse(error: unknown): ExtensionRuntimeResponse {

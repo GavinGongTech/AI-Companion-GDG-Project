@@ -1,6 +1,7 @@
 import { getAiProvider } from "../ai/index";
 
 interface SmgData {
+  conceptNode?: string;
   errorTypeMap?: Record<string, number>;
   recentInteractions?: Array<{ q: string; a: string }>;
 }
@@ -11,7 +12,10 @@ interface SmgSectionOptions {
   includeDifficulty?: number | null;
 }
 
-function buildSmgSection(smg: SmgData | null | undefined, { label, includeInteractions = false, includeDifficulty = null }: SmgSectionOptions = {}) {
+function buildSmgSection(
+  smg: SmgData | null | undefined,
+  { label, includeInteractions = false, includeDifficulty = null }: SmgSectionOptions = {},
+) {
   if (!smg) return "";
   const topErrors = Object.entries(smg.errorTypeMap || {})
     .sort((a, b) => b[1] - a[1])
@@ -50,7 +54,11 @@ Respond with ONLY a JSON object:
 /**
  * Explain a concept using provided context and student history.
  */
-export async function explainConcept(question: string, context: string, smg: SmgData | null = null): Promise<any> {
+export async function explainConcept(
+  question: string,
+  context: string,
+  smg: SmgData | null = null,
+): Promise<any> {
   const smgSection = smg ? buildSmgSection(smg, { label: "this course", includeInteractions: true }) : "";
   const compactContext = context ? context.slice(0, 5000) : "";
 
@@ -58,7 +66,7 @@ export async function explainConcept(question: string, context: string, smg: Smg
 Use the course material context below to help when it is relevant.
 
 Rules:
-- If the question is not actually an academic/study question (e.g. greetings like "hi", small talk, random chat), answer it briefly and normally. Do NOT force-fit unrelated course material.
+- If the question is not actually an academic/study question (e.g. greetings like "hi"), answer it briefly and normally. Do NOT force-fit unrelated course material.
 - If the question is academic, prioritize answering the question directly.
 - Only lean heavily on course material context when it clearly matches the question. If context is unrelated, ignore it.
 
@@ -71,9 +79,11 @@ ${question}
 
 Respond with ONLY a JSON object:
 {
-  "explanation": "string (markdown allowed, use $...$ for inline math, $$...$$ for block math)",
-  "concept": "string",
-  "personalizedCallout": "<a personalized note based on the student's history, or empty string if no history>"
+  "solution": "string (markdown allowed, use $...$ for inline math, $$...$$ for block math)",
+  "mainConcept": "string (short)",
+  "relevantLecture": "string (or empty string)",
+  "keyFormulas": ["string", "string"],
+  "personalizedCallout": "string (or empty string)"
 }`;
 
   return getAiProvider().generateJson({
@@ -84,12 +94,61 @@ Respond with ONLY a JSON object:
 }
 
 /**
- * Generate a quiz based on the context.
+ * Classify an interaction for SMG tagging.
+ * Returns { conceptNode, errorType, confidence }.
  */
-export async function generateQuiz(context: string, count: number = 3): Promise<any> {
-  const prompt = `Generate ${count} multiple-choice questions based on the following text.
-TEXT:
-${context.slice(0, 8000)}
+export async function classifyConcept(question: string, solution: string): Promise<any> {
+  const compactQ = String(question || "").slice(0, 1200);
+  const compactSol = String(solution || "").slice(0, 2000);
+
+  const prompt = `You are classifying a student's question and the AI's solution into a concept node and error type.
+
+Question:
+${compactQ}
+
+Solution:
+${compactSol}
+
+Return ONLY this JSON:
+{
+  "conceptNode": "string (snake_case preferred, e.g. integration_by_parts)",
+  "errorType": "conceptual_misunderstanding | procedural_error | knowledge_gap | reasoning_error | none",
+  "confidence": number (0 to 1)
+}`;
+
+  return getAiProvider().generateJson({
+    model: "fast",
+    prompt,
+    temperature: 0.0,
+  });
+}
+
+/**
+ * Generate a quiz from topic + RAG chunks (and optional weakest-concept hints).
+ */
+export async function generateQuiz(
+  topic: string,
+  chunks: string[] | number = [],
+  smgData: SmgData | null = null,
+  count = 3,
+): Promise<any> {
+  // Legacy signature: generateQuiz(contextText: string, count: number)
+  if (typeof chunks === "number") {
+    return generateQuiz("general", [topic], null, chunks);
+  }
+
+  const contextText = Array.isArray(chunks) ? chunks.join("\n\n---\n\n") : "";
+  const compactContext = contextText.slice(0, 8000);
+  const smgHint = smgData
+    ? `Student weak concept hint: ${smgData.conceptNode || ""}. Common error types: ${Object.keys(smgData.errorTypeMap || {}).join(", ")}`
+    : "";
+
+  const prompt = `Generate ${count} multiple-choice questions for the topic "${topic || "general"}".
+Use the course material context when relevant.
+${smgHint}
+
+CONTEXT:
+${compactContext || "No course material provided."}
 
 Respond with ONLY a JSON object:
 {
@@ -97,8 +156,10 @@ Respond with ONLY a JSON object:
     {
       "question": "string",
       "options": ["string", "string", "string", "string"],
-      "answerIndex": number,
-      "explanation": "string"
+      "answer": number,
+      "explanation": "string",
+      "difficulty": "easy | medium | hard",
+      "conceptNode": "string"
     }
   ]
 }`;
@@ -130,30 +191,8 @@ Give a clear, step-by-step explanation. Highlight key formulas. Be concise but t
   });
 }
 
-/**
- * Classify a student interaction for misconception mapping.
- */
-export async function classifyConcept(question: string, answer: string): Promise<any> {
-  const prompt = `Analyze this student question and the AI's answer to categorize the student's current understanding.
-Question: ${question}
-AI Answer: ${answer}
-
-Identify the specific concept node and the type of error the student might be making.
-Error types: conceptual_misunderstanding, procedural_error, knowledge_gap, reasoning_error, none.
-
-Respond with ONLY a JSON object:
-{
-  "conceptNode": "string (lowercase_with_underscores)",
-  "errorType": "string",
-  "confidence": <number between 0 and 1>
-}`;
-
-  return getAiProvider().generateJson({
-    model: "fast",
-    prompt,
-    temperature: 0.0,
-  });
-}
+/** Back-compat: older routes import this name when bundling resolves .js. */
+export const explainStreaming = explainConceptStream;
 
 /**
  * Discover the top 5 core academic concepts in a text for initial graph population.

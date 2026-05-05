@@ -98,8 +98,11 @@ function pipeOutput(stream, prefix) {
 
 function spawnWorkspaceScript(workspace, label, scriptName, index) {
   const prefix = formatPrefix(label, index);
+  // On Windows, spawning "bun" by name can fail even when `bun` works in the shell.
+  // Use the current runtime executable (bun.exe) when available.
+  const bunBin = process.execPath && /bun(\.exe)?$/i.test(process.execPath) ? process.execPath : "bun";
   const child = spawn(
-    "bun",
+    bunBin,
     ["run", "--cwd", workspace, scriptName],
     {
       cwd: rootDir,

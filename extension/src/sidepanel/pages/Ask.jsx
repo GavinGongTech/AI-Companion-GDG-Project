@@ -38,6 +38,49 @@ export function Ask() {
     });
   }, []);
 
+  // If the content-script widget asked us to open Ask with a screenshot, consume it here.
+  useEffect(() => {
+    let cancelled = false;
+
+    async function consumePrefillScreenshot() {
+      const data = await chrome.storage.session.get(["prefillAsk", "prefillAskImageBase64"]);
+      const base64 = data.prefillAskImageBase64;
+      const prefillText = data.prefillAsk;
+      if (!base64 || cancelled) return;
+
+      await chrome.storage.session.remove(["prefillAskImageBase64", "prefillAsk"]);
+      if (prefillText && !question) {
+        setQuestion(prefillText);
+      }
+
+      setLoading(true);
+      setError(null);
+      setResponse(null);
+      setStreamingText("");
+      setIsStreaming(false);
+      try {
+        const res = await apiFetch("/api/v1/analyze", {
+          method: "POST",
+          body: JSON.stringify({ imageBase64: base64, courseId: courseId || undefined }),
+        });
+        if (!cancelled) {
+          setResponse(res);
+          if (res?.question) setQuestion(res.question);
+        }
+      } catch (err) {
+        if (!cancelled) setError(err.message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    consumePrefillScreenshot().catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId, question]);
+
   const hasAutoGrabbed = useRef(false);
   useEffect(() => {
     if (!hasAutoGrabbed.current) {
