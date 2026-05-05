@@ -74,7 +74,16 @@ async function openSidePanelIfPossible(
 ): Promise<void> {
   const windowId = sender.tab?.windowId;
   if (typeof windowId === "number") {
-    await Promise.resolve(sidePanel.open({ windowId }));
+    try {
+      await Promise.resolve(sidePanel.open({ windowId }));
+    } catch (error) {
+      const message = getErrorMessage(error);
+      if (message.includes("may only be called in response to a user gesture")) {
+        return;
+      }
+
+      throw error;
+    }
   }
 }
 

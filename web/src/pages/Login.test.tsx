@@ -23,6 +23,10 @@ vi.mock("../lib/api", () => ({
   trackClientEvent: vi.fn().mockResolvedValue({}),
 }));
 
+vi.mock("../lib/auth", () => ({
+  useAuth: vi.fn(() => null),
+}));
+
 vi.mock("../lib/extensionBridge", () => ({
   getExtensionIdFromSearch: vi.fn(() => null),
   sendAuthToExtension: vi.fn().mockResolvedValue({ ok: true }),
@@ -100,6 +104,13 @@ describe("Login Page", () => {
         <Login />
       </MemoryRouter>
     );
+
+    fireEvent.change(screen.getByPlaceholderText(/you@university.edu/i), {
+      target: { value: "test@example.com" },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/••••••••/), {
+      target: { value: "password" },
+    });
 
     const submitBtn = screen.getByRole("button", { name: "Continue" });
     await act(async () => {

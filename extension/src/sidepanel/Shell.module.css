@@ -89,6 +89,27 @@
   box-shadow: var(--shadow-soft);
 }
 
+.hello {
+  padding: 14px 18px 0;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.helloText {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.helloMeta {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
 .main {
   padding: 18px;
   flex: 1;
