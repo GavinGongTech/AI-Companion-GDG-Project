@@ -9,10 +9,10 @@
 }
 
 .header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  flex-wrap: wrap;
   padding: 18px 18px 14px;
   border-bottom: 1px solid var(--border-subtle);
   background: rgba(255, 255, 255, 0.92);
@@ -22,16 +22,16 @@
 /* Used by Shell.tsx — must match JSX class names (CSS modules strip unknown keys). */
 .tabs {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   flex-wrap: wrap;
-  justify-self: center;
+  flex: 1;
+  min-width: 180px;
 }
 
 .signOutButton {
   flex-shrink: 0;
-  justify-self: end;
   margin-top: 0;
   padding: 8px 14px;
   font-size: 12px;
@@ -88,11 +88,13 @@
 
 .title {
   margin: 0;
-  justify-self: start;
   font-size: 24px;
   font-weight: 600;
   letter-spacing: -0.03em;
   white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .nav {

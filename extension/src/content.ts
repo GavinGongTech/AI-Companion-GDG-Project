@@ -21,38 +21,41 @@ import type { ExtensionRuntimeMessage } from "./lib/messages";
   const sourcePlatform = detectSupportedPlatform(window.location.hostname);
   if (!sourcePlatform) return;
 
-  const extractedText = extractText(document, sourcePlatform);
-  const pdfInfo = detectPdfUrl(document, sourcePlatform);
+  // Brightspace sometimes has `document.body === null` at document_start.
+  // If so, wait for DOM readiness then run again.
+  const run = () => {
+    const extractedText = extractText(document, sourcePlatform);
+    const pdfInfo = detectPdfUrl(document, sourcePlatform);
 
-  if (!extractedText && !pdfInfo) return;
+    if (!extractedText && !pdfInfo) return;
 
-  const hash = createContentHash(extractedText || (pdfInfo?.pdfUrl ?? ""));
-  const STORAGE_KEY = "studyflow_last_hash";
-  const isDuplicate = localStorage.getItem(STORAGE_KEY) === hash;
-  localStorage.setItem(STORAGE_KEY, hash);
+    const hash = createContentHash(extractedText || (pdfInfo?.pdfUrl ?? ""));
+    const STORAGE_KEY = "studyflow_last_hash";
+    const isDuplicate = localStorage.getItem(STORAGE_KEY) === hash;
+    localStorage.setItem(STORAGE_KEY, hash);
 
-  let ingested = false;
-  if (!isDuplicate) {
-    const message: ExtensionRuntimeMessage = {
-      type: "INGEST_PAGE",
-      payload: createIngestPayload(
-        extractedText || "PDF Content Detected",
-        document.title,
-        sourcePlatform,
-        pdfInfo?.pdfUrl,
-        pdfInfo?.filename,
-      ),
-    };
-    chrome.runtime.sendMessage(message);
-    ingested = true;
-  }
+    let ingested = false;
+    if (!isDuplicate) {
+      const message: ExtensionRuntimeMessage = {
+        type: "INGEST_PAGE",
+        payload: createIngestPayload(
+          extractedText || "PDF Content Detected",
+          document.title,
+          sourcePlatform,
+          pdfInfo?.pdfUrl,
+          pdfInfo?.filename,
+        ),
+      };
+      chrome.runtime.sendMessage(message);
+      ingested = true;
+    }
 
-  // --- Shadow DOM floating widget ---
-  const host = document.createElement("div");
-  host.id = "studyflow-fab-host";
-  document.body.appendChild(host);
+    // --- Shadow DOM floating widget ---
+    const host = document.createElement("div");
+    host.id = "studyflow-fab-host";
+    document.body?.appendChild(host);
 
-  const shadow = host.attachShadow({ mode: "closed" });
+    const shadow = host.attachShadow({ mode: "closed" });
 
   const style = document.createElement("style");
   style.textContent = `
@@ -154,7 +157,7 @@ import type { ExtensionRuntimeMessage } from "./lib/messages";
     panel.classList.toggle("open");
   });
 
-  btnExplain.addEventListener("click", () => {
+    btnExplain.addEventListener("click", () => {
     const selectedText = window.getSelection()?.toString() ?? "";
     const message: ExtensionRuntimeMessage = {
       type: "OPEN_ASK_SCREENSHOT",
@@ -182,5 +185,12 @@ import type { ExtensionRuntimeMessage } from "./lib/messages";
     panel.classList.remove("open");
   });
 
-  console.info("[Study Flow] Content script loaded on", sourcePlatform, window.location.href);
+    console.info("[Study Flow] Content script loaded on", sourcePlatform, window.location.href);
+  };
+
+  if (!document.body) {
+    window.addEventListener("DOMContentLoaded", run, { once: true });
+  } else {
+    run();
+  }
 })();
