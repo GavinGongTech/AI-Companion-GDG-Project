@@ -117,14 +117,16 @@ export function Ask() {
       }
 
       const results = await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
+        target: { tabId: tab.id, allFrames: true },
         func: () => {
           const sel = window.getSelection().toString().trim();
           return sel;
         },
       });
 
-      const text = String(results?.[0]?.result || "").trim();
+      const text = (results || [])
+        .map((r) => String(r?.result || "").trim())
+        .find(Boolean) || "";
       if (!text) {
         setFeedback("Highlight text on the page first, then click Read Page Text.");
         return;

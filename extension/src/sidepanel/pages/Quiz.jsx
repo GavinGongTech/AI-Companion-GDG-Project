@@ -101,15 +101,17 @@ export function Quiz() {
       }
 
       const results = await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
+        target: { tabId: tab.id, allFrames: true },
         func: () => {
           const sel = window.getSelection().toString().trim();
           return sel;
         },
       });
 
-      const text = results?.[0]?.result;
-      const trimmed = String(text || "").trim();
+      const trimmed =
+        (results || [])
+          .map((r) => String(r?.result || "").trim())
+          .find(Boolean) || "";
       if (trimmed) {
         setTopic(trimmed.slice(0, 220));
         setFeedback("Topic set from selection.");
