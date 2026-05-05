@@ -15,3 +15,5 @@ coverage/
 .codex
 serve
 *.Zone.Identifier
+*.pem
+.mcp.json
