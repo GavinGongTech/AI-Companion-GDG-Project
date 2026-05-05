@@ -32,11 +32,14 @@ export function detectSupportedPlatform(hostname: string): SupportedContentPlatf
 
 export function extractText(documentRef: Document, sourcePlatform: SupportedContentPlatform): string {
   for (const selector of PLATFORM_SELECTORS[sourcePlatform]) {
-    const element = documentRef.querySelector<HTMLElement>(selector);
-    const content = element?.innerText.trim();
-    if (content) {
-      return content;
-    }
+    const element = documentRef.querySelector(selector) as unknown as HTMLElement | null;
+    // Brightspace sometimes returns nodes where `innerText` isn't reliable at document_start.
+    const raw =
+      (typeof element?.innerText === "string" && element.innerText) ||
+      (typeof element?.textContent === "string" && element.textContent) ||
+      "";
+    const content = raw.trim();
+    if (content) return content;
   }
 
   // On some sites (Brightspace) at document_start the body can be null.
