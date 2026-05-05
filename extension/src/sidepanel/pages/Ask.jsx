@@ -21,6 +21,8 @@ export function Ask() {
   const [capturingShot, setCapturingShot] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [lastIngested, setLastIngested] = useState(null);
+  const [attachedImageBase64, setAttachedImageBase64] = useState(null);
+  const [attachedImagePreview, setAttachedImagePreview] = useState(null);
 
   const fileInputRef = useRef(null);
 
@@ -38,17 +40,37 @@ export function Ask() {
     });
   }, []);
 
-  const hasAutoGrabbed = useRef(false);
+  // If the content-script widget asked us to open Ask with a screenshot, consume it here.
   useEffect(() => {
-    if (!hasAutoGrabbed.current) {
-      hasAutoGrabbed.current = true;
-      handleUseSelectedText();
+    let cancelled = false;
+
+    async function consumePrefillScreenshot() {
+      const data = await chrome.storage.session.get(["prefillAsk", "prefillAskImageBase64"]);
+      const base64 = data.prefillAskImageBase64;
+      const prefillText = data.prefillAsk;
+      if (!base64 || cancelled) return;
+
+      await chrome.storage.session.remove(["prefillAskImageBase64", "prefillAsk"]);
+      if (prefillText && !question) {
+        setQuestion(prefillText);
+      }
+      // Attach the screenshot — user can add/adjust question, then submit once with the image.
+      const dataUrl = `data:image/jpeg;base64,${base64}`;
+      setAttachedImageBase64(base64);
+      setAttachedImagePreview(dataUrl);
+      setFeedback("Screenshot attached. Add a question and press Explain.");
     }
-  }, []);
+
+    consumePrefillScreenshot().catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId, question]);
 
   async function handleAsk(e) {
     if (e) e.preventDefault();
-    if (!question.trim()) return;
+    if (!question.trim() && !attachedImageBase64) return;
 
     setLoading(true);
     setError(null);
@@ -57,11 +79,25 @@ export function Ask() {
     setIsStreaming(true);
 
     try {
-      const data = await apiFetch("/api/v1/explain", {
-        method: "POST",
-        body: JSON.stringify({ question, courseId: courseId || undefined }),
-      });
-      setResponse(data);
+      if (attachedImageBase64) {
+        const data = await apiFetch("/api/v1/analyze", {
+          method: "POST",
+          body: JSON.stringify({
+            content: question.trim() || undefined,
+            imageBase64: attachedImageBase64,
+            courseId: courseId || undefined,
+          }),
+        });
+        setResponse(data);
+        setAttachedImageBase64(null);
+        setAttachedImagePreview(null);
+      } else {
+        const data = await apiFetch("/api/v1/explain", {
+          method: "POST",
+          body: JSON.stringify({ question, courseId: courseId || undefined }),
+        });
+        setResponse(data);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -73,6 +109,7 @@ export function Ask() {
   async function handleUseSelectedText() {
     setGrabbingText(true);
     setError(null);
+    setFeedback(null);
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!tab?.id || tab.url?.startsWith("chrome://") || tab.url?.startsWith("edge://")) {
@@ -80,25 +117,21 @@ export function Ask() {
       }
 
       const results = await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
+        target: { tabId: tab.id, allFrames: true },
         func: () => {
           const sel = window.getSelection().toString().trim();
-          return sel ? sel : document.body.innerText;
+          return sel;
         },
       });
 
-      const text = results?.[0]?.result;
-      if (text) {
-        setQuestion(prev => prev ? prev : text.substring(0, 15000));
-      } else {
-        // Fallback to last ingested content if no selection
-        const data = await chrome.storage.session.get(["lastIngestedContent"]);
-        if (data.lastIngestedContent?.rawContent) {
-          setQuestion(prev => prev ? prev : data.lastIngestedContent.rawContent.slice(0, 5000));
-        } else {
-          setFeedback("No text found on the page!");
-        }
+      const text = (results || [])
+        .map((r) => String(r?.result || "").trim())
+        .find(Boolean) || "";
+      if (!text) {
+        setFeedback("Highlight text on the page first, then click Read Page Text.");
+        return;
       }
+      setQuestion(text.substring(0, 15000));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -117,23 +150,14 @@ export function Ask() {
         });
       });
 
-      const base64Image = dataUrl.split(",")[1];
-      setLoading(true);
-      setResponse(null);
-      setQuestion("");
-
-      const data = await apiFetch("/api/v1/analyze", {
-        method: "POST",
-        body: JSON.stringify({ imageBase64: base64Image, courseId: courseId || undefined }),
-      });
-      setResponse(data);
-      if (data.question) {
-        setQuestion(data.question);
-      }
+      const base64Image = String(dataUrl).split(",")[1] || null;
+      if (!base64Image) throw new Error("Screenshot capture returned empty image data.");
+      setAttachedImageBase64(base64Image);
+      setAttachedImagePreview(String(dataUrl));
+      setFeedback("Screenshot attached. Add a question and press Explain.");
     } catch (err) {
       setError(err.message);
     } finally {
-      setLoading(false);
       setCapturingShot(false);
     }
   }
@@ -224,6 +248,25 @@ export function Ask() {
           onChange={(e) => setQuestion(e.target.value)}
           disabled={loading || isStreaming}
         />
+        {attachedImagePreview && (
+          <div className={styles.attachedImageRow}>
+            <img src={attachedImagePreview} alt="" className={styles.attachedThumb} />
+            <div className={styles.attachedMeta}>
+              <p className={styles.attachedLabel}>Screenshot attached</p>
+              <button
+                type="button"
+                className={styles.linkButton}
+                onClick={() => {
+                  setAttachedImageBase64(null);
+                  setAttachedImagePreview(null);
+                  setFeedback(null);
+                }}
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        )}
         <div className={styles.buttonRow}>
           <button
             className={styles.secondaryButton}
@@ -273,10 +316,14 @@ export function Ask() {
             ref={fileInputRef}
             style={{ display: "none" }}
             onChange={handleFileUpload}
-            accept=".pdf,.png,.jpg,.jpeg,.txt"
+            accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.txt,.md"
           />
         </div>
-        <button className={styles.primaryButton} type="submit" disabled={loading || !question.trim() || isStreaming}>
+        <button
+          className={styles.primaryButton}
+          type="submit"
+          disabled={loading || isStreaming || (!question.trim() && !attachedImageBase64)}
+        >
           {loading ? "Thinking..." : "Explain"}
         </button>
       </form>
@@ -286,7 +333,7 @@ export function Ask() {
 
       {showResponse && (
         <div className={styles.response}>
-          <MathRenderer content={streamingText || response?.explanation} />
+          <MathRenderer text={streamingText || response?.solution || response?.explanation || ""} />
         </div>
       )}
     </div>

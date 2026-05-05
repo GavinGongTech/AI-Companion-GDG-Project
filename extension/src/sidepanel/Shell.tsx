@@ -26,11 +26,14 @@ export function Shell({ children }: PropsWithChildren) {
       <header className={styles.header}>
         <div className={styles.title}>Study Flow</div>
         <nav className={styles.tabs}>
-          <NavLink to="/" className={tabClass} end>
+          <NavLink to="/home" className={tabClass} end>
             Hub
           </NavLink>
           <NavLink to="/ask" className={tabClass}>
             Ask
+          </NavLink>
+          <NavLink to="/quiz" className={tabClass}>
+            Quiz
           </NavLink>
         </nav>
         <button 

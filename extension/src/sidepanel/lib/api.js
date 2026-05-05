@@ -27,7 +27,7 @@ function validateApiUrl() {
 function mapNetworkError(err) {
   const msg = err?.message || String(err);
   if (msg === "Failed to fetch" || msg === "Load failed" || err?.name === "TypeError") {
-    return `Cannot reach API at ${API_URL}. Start the backend (bun run dev:server from repo root) and reload the extension; rebuild the extension if you changed VITE_API_URL in extension/.env.`;
+    return `Cannot reach API at ${API_URL}. From repo root run: bun run dev:server — and set server/.env PORT=4001 (or match your VITE_API_URL port). Reload the extension; rebuild (bun run --cwd extension build) if you change extension/.env.`;
   }
   return msg;
 }

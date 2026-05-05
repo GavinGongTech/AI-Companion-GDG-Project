@@ -39,7 +39,10 @@ export function extractText(documentRef: Document, sourcePlatform: SupportedCont
     }
   }
 
-  return (documentRef.body.innerText || "").trim();
+  // On some sites (Brightspace) at document_start the body can be null.
+  // In that case, return empty and let the caller retry after DOM is ready.
+  const bodyText = documentRef.body?.innerText;
+  return (bodyText || "").trim();
 }
 
 export function createContentHash(text: string): string {

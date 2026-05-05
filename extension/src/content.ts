@@ -14,6 +14,11 @@ import type { ExtensionRuntimeMessage } from "./lib/messages";
   if (document.documentElement.getAttribute(ATTR)) return;
   document.documentElement.setAttribute(ATTR, "1");
 
+  // Only inject the floating widget in the top frame (avoid duplicate FABs in iframes / PDF viewers).
+  if (window !== window.top) {
+    return;
+  }
+
   const sourcePlatform = detectSupportedPlatform(window.location.hostname);
   if (!sourcePlatform) return;
 
@@ -27,8 +32,8 @@ import type { ExtensionRuntimeMessage } from "./lib/messages";
   let ingested = false;
 
   function tryIngest(): boolean {
-    const extractedText = extractText(document, sourcePlatform!);
-    const pdfInfo = detectPdfUrl(document, sourcePlatform!);
+    const extractedText = extractText(document, sourcePlatform);
+    const pdfInfo = detectPdfUrl(document, sourcePlatform);
 
     if (!extractedText && !pdfInfo) return false;
 
@@ -45,7 +50,7 @@ import type { ExtensionRuntimeMessage } from "./lib/messages";
             pdfUrl: pdfInfo.pdfUrl,
             filename: pdfInfo.filename,
             courseName: courseId,
-            sourcePlatform: sourcePlatform!,
+            sourcePlatform,
           },
         };
         chrome.runtime.sendMessage(message);
@@ -53,7 +58,7 @@ import type { ExtensionRuntimeMessage } from "./lib/messages";
         // Text-only path: send extracted DOM text to /ingest/text
         const message: ExtensionRuntimeMessage = {
           type: "INGEST_PAGE",
-          payload: createIngestPayload(extractedText, courseId, sourcePlatform!),
+          payload: createIngestPayload(extractedText, courseId, sourcePlatform),
         };
         chrome.runtime.sendMessage(message);
       }
@@ -66,18 +71,27 @@ import type { ExtensionRuntimeMessage } from "./lib/messages";
   const contentFound = tryIngest();
 
   if (!contentFound) {
-    // SPA content not yet in DOM — watch for mutations and retry
-    const observer = new MutationObserver(() => {
-      if (tryIngest()) observer.disconnect();
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-    setTimeout(() => observer.disconnect(), 30_000);
+    // SPA content not yet in DOM — watch for mutations and retry.
+    // Note: `document.body` can be null at document_start; wait for DOM ready first.
+    const startObserver = () => {
+      if (!document.body) return;
+      const observer = new MutationObserver(() => {
+        if (tryIngest()) observer.disconnect();
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+      setTimeout(() => observer.disconnect(), 30_000);
+    };
+    if (!document.body) window.addEventListener("DOMContentLoaded", startObserver, { once: true });
+    else startObserver();
   }
 
   // --- Shadow DOM floating widget ---
   const host = document.createElement("div");
   host.id = "studyflow-fab-host";
-  document.body.appendChild(host);
+  // body can still be null at document_start; defer if needed
+  const mountHost = () => document.body?.appendChild(host);
+  if (!document.body) window.addEventListener("DOMContentLoaded", mountHost, { once: true });
+  else mountHost();
 
   const shadow = host.attachShadow({ mode: "closed" });
 
@@ -169,6 +183,10 @@ import type { ExtensionRuntimeMessage } from "./lib/messages";
   btnExplain.textContent = "Explain this";
   panel.appendChild(btnExplain);
 
+  const btnAsk = document.createElement("button");
+  btnAsk.textContent = "Ask me";
+  panel.appendChild(btnAsk);
+
   const btnQuiz = document.createElement("button");
   btnQuiz.textContent = "Quiz me";
   panel.appendChild(btnQuiz);
@@ -177,10 +195,10 @@ import type { ExtensionRuntimeMessage } from "./lib/messages";
     panel.classList.toggle("open");
   });
 
-  btnExplain.addEventListener("click", () => {
-    const selectedText = window.getSelection()?.toString();
+    btnExplain.addEventListener("click", () => {
+    const selectedText = window.getSelection()?.toString() ?? "";
     const message: ExtensionRuntimeMessage = {
-      type: "OPEN_ASK",
+      type: "OPEN_ASK_SCREENSHOT",
       payload: {
         selectedText: selectedText || "",
       },
@@ -189,8 +207,18 @@ import type { ExtensionRuntimeMessage } from "./lib/messages";
     panel.classList.remove("open");
   });
 
+  btnAsk.addEventListener("click", () => {
+    const selectedText = window.getSelection()?.toString() ?? "";
+    const message: ExtensionRuntimeMessage = {
+      type: "OPEN_ASK_SCREENSHOT",
+      payload: { selectedText },
+    };
+    chrome.runtime.sendMessage(message);
+    panel.classList.remove("open");
+  });
+
   btnQuiz.addEventListener("click", () => {
-    const message: ExtensionRuntimeMessage = { type: "OPEN_QUIZ" };
+    const message: ExtensionRuntimeMessage = { type: "OPEN_QUIZ_SCREENSHOT" };
     chrome.runtime.sendMessage(message);
     panel.classList.remove("open");
   });
