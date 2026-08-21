@@ -1591,6 +1591,10 @@
 
     "es-set-tostringtag/hasown": ["hasown@2.0.3", "", { "dependencies": { "function-bind": "^1.1.2" } }, "sha512-ej4AhfhfL2Q2zpMmLo7U1Uv9+PyhIZpgQLGT1F9miIGmiCJIoCgSmczFdrc97mWT4kVY72KA+WnnhJ5pghSvSg=="],
 
+    "extension/@study-flow/client": ["@study-flow/client@file:packages/client", { "dependencies": { "@study-flow/shared": "workspace:*", "firebase": "^12.12.0" }, "devDependencies": { "@eslint/js": "^10.0.1", "@types/node": "^22.13.4", "@typescript-eslint/parser": "^8.58.2", "eslint": "^10.1.0", "globals": "^17.5.0", "typescript": "^6.0.2", "vitest": "^4.1.4" } }],
+
+    "extension/@study-flow/shared": ["@study-flow/shared@file:packages/shared", { "dependencies": { "zod": "^3.24.4" }, "devDependencies": { "@eslint/js": "^10.0.1", "@types/node": "^22.13.4", "@typescript-eslint/parser": "^8.58.2", "eslint": "^10.1.0", "globals": "^17.5.0", "typescript": "^6.0.2", "vitest": "^4.1.4" } }],
+
     "form-data/mime-types": ["mime-types@2.1.35", "", { "dependencies": { "mime-db": "1.52.0" } }, "sha512-ZDY+bPm5zTTF+YpCrAU9nK0UgICYPT0QtT1NZWFv4s++TNkcgVaT0g6+4R2uI4MjQjzysHB1zxuWL50hzaeXiw=="],
 
     "get-intrinsic/hasown": ["hasown@2.0.3", "", { "dependencies": { "function-bind": "^1.1.2" } }, "sha512-ej4AhfhfL2Q2zpMmLo7U1Uv9+PyhIZpgQLGT1F9miIGmiCJIoCgSmczFdrc97mWT4kVY72KA+WnnhJ5pghSvSg=="],
@@ -1628,6 +1632,10 @@
     "teeny-request/node-fetch": ["node-fetch@2.7.0", "", { "dependencies": { "whatwg-url": "^5.0.0" }, "peerDependencies": { "encoding": "^0.1.0" }, "optionalPeers": ["encoding"] }, "sha512-c4FRfUm/dbcWZ7U+1Wq0AwCyFL+3nt2bEw05wfxSz+DWpWsitgmSgYmy2dQdWyKC1694ELPqMs/YzUSNozLt8A=="],
 
     "vite/tinyglobby": ["tinyglobby@0.2.17", "", { "dependencies": { "fdir": "^6.5.0", "picomatch": "^4.0.4" } }, "sha512-wXR/dYpcqKmfWpEdZjiKJOwCNFndD0DMnrW/cYjVGttEkBfVgcLFHoNrlj47mjOVic9yyNu65alsgF4NQyTa2g=="],
+
+    "web/@study-flow/client": ["@study-flow/client@file:packages/client", { "dependencies": { "@study-flow/shared": "workspace:*", "firebase": "^12.12.0" }, "devDependencies": { "@eslint/js": "^10.0.1", "@types/node": "^22.13.4", "@typescript-eslint/parser": "^8.58.2", "eslint": "^10.1.0", "globals": "^17.5.0", "typescript": "^6.0.2", "vitest": "^4.1.4" } }],
+
+    "web/@study-flow/shared": ["@study-flow/shared@file:packages/shared", { "dependencies": { "zod": "^3.24.4" }, "devDependencies": { "@eslint/js": "^10.0.1", "@types/node": "^22.13.4", "@typescript-eslint/parser": "^8.58.2", "eslint": "^10.1.0", "globals": "^17.5.0", "typescript": "^6.0.2", "vitest": "^4.1.4" } }],
 
     "wrap-ansi/ansi-styles": ["ansi-styles@4.3.0", "", { "dependencies": { "color-convert": "^2.0.1" } }, "sha512-zbB9rCJAT1rbjiVDb2hqKFHNYLxgtk8NURxZ3IZwD3F6NtxbXZQCnnSi1Lkx+IDohdPlFp222wVALIheZJQSEg=="],
 
@@ -1683,6 +1691,8 @@
 
     "bun-types/@types/node/undici-types": ["undici-types@7.19.2", "", {}, "sha512-qYVnV5OEm2AW8cJMCpdV20CDyaN3g0AjDlOGf1OW4iaDEx8MwdtChUp4zu4H0VP3nDRF/8RKWH+IPp9uW0YGZg=="],
 
+    "extension/@study-flow/client/@study-flow/shared": ["@study-flow/shared@file:packages/shared", { "dependencies": { "zod": "^3.24.4" }, "devDependencies": { "@eslint/js": "^10.0.1", "@types/node": "^22.13.4", "@typescript-eslint/parser": "^8.58.2", "eslint": "^10.1.0", "globals": "^17.5.0", "typescript": "^6.0.2", "vitest": "^4.1.4" } }],
+
     "form-data/mime-types/mime-db": ["mime-db@1.52.0", "", {}, "sha512-sPU4uV7dYlvtWJxwwxHD0PuihVNiE7TyAbQ5SWxDCB9mUYvOgroQOwYQQOKPJ8CIbE+1ETVlOoK1UC2nU3gYvg=="],
 
     "glob/minimatch/brace-expansion": ["brace-expansion@2.1.4", "", { "dependencies": { "balanced-match": "^1.0.0" } }, "sha512-hGfVzPxthbf3+2yjg/RBs60cB0FhqBS/zvdV/4wn4/BmN0bNMMHPc4V/BbFieqf1TKAGGAHnY4eSjajCl0f2Xg=="],
@@ -1704,6 +1714,8 @@
     "teeny-request/https-proxy-agent/agent-base": ["agent-base@6.0.2", "", { "dependencies": { "debug": "4" } }, "sha512-RZNwNclF7+MS/8bDg70amg32dyeZGZxiDuQmZxKLAlQjr3jGyLx+4Kkk58UO7D2QdgFIQCovuSuZESne6RG6XQ=="],
 
     "teeny-request/node-fetch/whatwg-url": ["whatwg-url@5.0.0", "", { "dependencies": { "tr46": "~0.0.3", "webidl-conversions": "^3.0.0" } }, "sha512-saE57nupxk6v3HY35+jzBwYa0rKSy0XR8JSxZPwgLr7ys0IBzhGviA1/TUGJLmSVqs8pb9AnvICXEuOHLprYTw=="],
+
+    "web/@study-flow/client/@study-flow/shared": ["@study-flow/shared@file:packages/shared", { "dependencies": { "zod": "^3.24.4" }, "devDependencies": { "@eslint/js": "^10.0.1", "@types/node": "^22.13.4", "@typescript-eslint/parser": "^8.58.2", "eslint": "^10.1.0", "globals": "^17.5.0", "typescript": "^6.0.2", "vitest": "^4.1.4" } }],
 
     "@babel/core/@babel/parser/@babel/types/@babel/helper-string-parser": ["@babel/helper-string-parser@7.29.7", "", {}, "sha512-Pb5ijPrZ89GDH8223L4UP8i6QApWxs04RbPQJTeWDV0/keR2E36MeKnyr6LYmUUvqRRI+Iv87SuF1W6ErINzYw=="],
 
