@@ -9,6 +9,9 @@
     "extension",
     "server"
   ],
+  "overrides": {
+    "uuid": "^11.1.1"
+  },
   "scripts": {
     "setup": "bun run ./scripts/setup.mjs",
     "doctor": "bun run ./scripts/doctor.mjs",
