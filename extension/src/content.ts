@@ -6,7 +6,7 @@ import {
   detectPdfUrl,
   deriveCourseId,
 } from "./lib/content-runtime";
-import type { ExtensionRuntimeMessage } from "./lib/messages";
+import type { ExtensionRuntimeMessage, SupportedContentPlatform } from "./lib/messages";
 
 (function () {
   // Guard against double-injection
@@ -19,8 +19,13 @@ import type { ExtensionRuntimeMessage } from "./lib/messages";
     return;
   }
 
-  const sourcePlatform = detectSupportedPlatform(window.location.hostname);
-  if (!sourcePlatform) return;
+  const detected = detectSupportedPlatform(window.location.hostname);
+  if (!detected) return;
+  // Re-declared with the narrowed type rather than used directly. `tryIngest`
+  // below is a hoisted function declaration, so TypeScript treats it as created
+  // before this guard runs and will not carry the narrowing into its body --
+  // every use of the platform inside it reads as possibly null.
+  const sourcePlatform: SupportedContentPlatform = detected;
 
   const courseId = deriveCourseId(
     window.location.hostname,
