@@ -5,6 +5,11 @@ on:
     branches: [main]
     paths:
       - "web/**"
+      # The audit's own configuration and workflow. Without these, a change
+      # to a budget or an assertion does not re-run the audit, so the job
+      # cannot verify the change being made to it.
+      - ".lighthouserc.json"
+      - ".github/workflows/lighthouse.yml"
 
 permissions:
   contents: read
